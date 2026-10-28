@@ -96,6 +96,20 @@
                                 <button role="radio" aria-checked="@(mode == value)" class="@(mode == value ? "ppes-on" : "")" @onclick="@(() => SetMode(s.Id, value))">@T(pt, en)</button>
                             }
                         </div>
+                        @if (PartsOf(s.Id) is { Count: > 0 } partList)
+                        {
+                            <div class="@($"ppes-parts {(active ? "" : "ppes-parts-off")}")">
+                                <span class="ppes-label">@PartsTitle(s.Id)</span>
+                                @foreach (var part in partList)
+                                {
+                                    var partOn = GetPart(part.Key);
+                                    <label class="ppes-part" title="@T(part.PtHint, part.EnHint)">
+                                        <input type="checkbox" checked="@partOn" @onchange="@(e => SetPart(part.Key, e.Value is true))" />
+                                        <span>@T(part.Pt, part.En)</span>
+                                    </label>
+                                }
+                            </div>
+                        }
                         <div class="ppes-card-foot">
                             <span class="ppes-hint">@SeasonalHint(s.Id, mode)</span>
                             @QuestInfo(EventCatalog.SeasonalQuests(s.Id))
@@ -369,7 +383,110 @@
         || EventCatalog.Seasonal.Any(s => working.ModeOf(s.Id) != Config.Saved.ModeOf(s.Id))
         || working.Rotation.Mode != Config.Saved.Rotation.Mode
         || working.Rotation.Count != Config.Saved.Rotation.Count
-        || working.TraderMessage != Config.Saved.TraderMessage;
+        || working.TraderMessage != Config.Saved.TraderMessage
+        || !working.Halloween.SameAs(Config.Saved.Halloween)
+        || !working.Christmas.SameAs(Config.Saved.Christmas)
+        || !working.AprilFools.SameAs(Config.Saved.AprilFools);
+
+    private sealed record PartDef(string Key, string Pt, string En, string PtHint, string EnHint);
+
+    private static readonly IReadOnlyList<PartDef> HalloweenPartList =
+    [
+        new("h.ritual", "Ritual do Zryachiy (2023)", "Zryachiy ritual (2023)",
+            "Zryachiy andando pelos mapas. Matar ele começa o ritual dos sacerdotes; se o ritual terminar, aparece o Zryachiy Vingativo (Mstyaschiy).",
+            "Zryachiy roams the maps. Killing him starts the priests' ritual; if it finishes, Vengeful Zryachiy (Mstyaschiy) appears."),
+        new("h.zombies", "Zumbis e infectados (2024)", "Zombies and infected (2024)",
+            "Infectados nos mapas e a barra de infecção. O SPT deixa desligado por padrão porque fica muito difícil.",
+            "Infected on the maps and the infection meter. SPT ships it off because it gets very hard."),
+        new("h.cultists", "Noite dos cultistas (2025)", "Night of the cult (2025)",
+            "Os cultistas especiais Oni, Harbinger e Ghost onde ficam os Goons.",
+            "The special cultists Oni, Harbinger and Ghost where the Goons roam."),
+        new("h.labonly", "Lab só com infectados (com zumbis)", "Lab with infected only (with zombies)",
+            "Com os zumbis ligados, a Lab fica sem os Raiders e os chefes normais, só infectados, como no SPT original.",
+            "With zombies on, the Lab loses its Raiders and usual bosses and only has infected, as in stock SPT."),
+        new("h.freelab", "Lab sem cartão", "Lab without keycard",
+            "Durante o Halloween, entrar na Lab não precisa de cartão.",
+            "During Halloween, entering the Lab needs no keycard."),
+    ];
+
+    private static readonly IReadOnlyList<PartDef> AprilFoolsPartList =
+    [
+        new("a.winter", "Clima de inverno", "Winter weather",
+            "Neve nos mapas no 1º de abril.",
+            "Snow on the maps on April Fools."),
+        new("a.santa", "Papai Noel nos mapas", "Santa on the maps",
+            "O Papai Noel anda pelos mapas e dá presentes.",
+            "Santa walks the maps handing out gifts."),
+        new("a.ritual", "Ritual e cultistas", "Ritual and cultists",
+            "O ritual do Zryachiy e os cultistas especiais do Halloween.",
+            "The Zryachiy ritual and the special Halloween cultists."),
+    ];
+
+    private static readonly IReadOnlyList<PartDef> ChristmasPartList =
+    [
+        new("c.santa", "Papai Noel nos mapas (2021)", "Santa on the maps (2021)",
+            "O Papai Noel anda pelos mapas e dá presentes. Não atire nele.",
+            "Santa walks the maps handing out gifts. Don't shoot him."),
+        new("c.hideout", "Árvore no hideout", "Hideout tree",
+            "Árvore de Natal e decoração no hideout.",
+            "Christmas tree and decorations in the hideout."),
+        new("c.khorovod", "Khorovod (2024)", "Khorovod (2024)",
+            "O evento da árvore nos mapas: abasteça o gerador, defenda a árvore e veja os bots dançando em volta dela.",
+            "The tree event on the maps: refuel the generator, defend the tree and watch the bots dance around it."),
+        new("c.winter", "Roupas de inverno nos bots", "Winter clothes on bots",
+            "PMCs e Scavs usam roupas de inverno com mais frequência.",
+            "PMCs and Scavs wear winter clothes more often."),
+    ];
+
+    private string PartsTitle(string seasonalId) => seasonalId switch
+    {
+        "halloween" => T("Partes do Halloween:", "Halloween parts:"),
+        "aprilfools" => T("Partes do 1º de abril:", "April Fools parts:"),
+        _ => T("Partes do Natal e Ano Novo:", "Christmas and New Year parts:"),
+    };
+
+    private static IReadOnlyList<PartDef> PartsOf(string seasonalId) => seasonalId switch
+    {
+        "halloween" => HalloweenPartList,
+        "christmas" or "newyears" => ChristmasPartList,
+        "aprilfools" => AprilFoolsPartList,
+        _ => [],
+    };
+
+    private bool GetPart(string key) => key switch
+    {
+        "h.ritual" => working.Halloween.Ritual,
+        "h.zombies" => working.Halloween.Zombies,
+        "h.cultists" => working.Halloween.Cultists,
+        "h.labonly" => working.Halloween.LabInfectedOnly,
+        "h.freelab" => working.Halloween.FreeLab,
+        "a.winter" => working.AprilFools.Winter,
+        "a.santa" => working.AprilFools.Santa,
+        "a.ritual" => working.AprilFools.RitualAndCult,
+        "c.santa" => working.Christmas.Santa,
+        "c.hideout" => working.Christmas.Hideout,
+        "c.khorovod" => working.Christmas.Khorovod,
+        _ => working.Christmas.WinterClothes,
+    };
+
+    private void SetPart(string key, bool on)
+    {
+        switch (key)
+        {
+            case "h.ritual": working.Halloween.Ritual = on; break;
+            case "h.zombies": working.Halloween.Zombies = on; break;
+            case "h.cultists": working.Halloween.Cultists = on; break;
+            case "h.labonly": working.Halloween.LabInfectedOnly = on; break;
+            case "h.freelab": working.Halloween.FreeLab = on; break;
+            case "a.winter": working.AprilFools.Winter = on; break;
+            case "a.santa": working.AprilFools.Santa = on; break;
+            case "a.ritual": working.AprilFools.RitualAndCult = on; break;
+            case "c.santa": working.Christmas.Santa = on; break;
+            case "c.hideout": working.Christmas.Hideout = on; break;
+            case "c.khorovod": working.Christmas.Khorovod = on; break;
+            default: working.Christmas.WinterClothes = on; break;
+        }
+    }
 
     private List<string> EffectiveSeasonal => EventCatalog.Seasonal.Where(s => IsSeasonalActive(working, s.Id)).Select(s => s.Id).ToList();
 
@@ -402,6 +519,12 @@
                 .Where(s => IsSeasonalActive(saved, s.Id) != IsSeasonalActive(applied, s.Id))
                 .Select(s => T(s.NamePt, s.NameEn))
                 .ToList();
+            if (IsSeasonalActive(saved, "halloween") && !saved.Halloween.SameAs(applied.Halloween))
+                names.Add(T("Partes do Halloween", "Halloween parts"));
+            if ((IsSeasonalActive(saved, "christmas") || IsSeasonalActive(saved, "newyears")) && !saved.Christmas.SameAs(applied.Christmas))
+                names.Add(T("Partes do Natal e Ano Novo", "Christmas and New Year parts"));
+            if (IsSeasonalActive(saved, "aprilfools") && !saved.AprilFools.SameAs(applied.AprilFools))
+                names.Add(T("Partes do 1º de abril", "April Fools parts"));
             names.AddRange(EventCatalog.PastEvents
                 .Where(e => e.NeedsRestart && saved.HasEvent(e.Id) != applied.HasEvent(e.Id))
                 .Select(e => e.Name));

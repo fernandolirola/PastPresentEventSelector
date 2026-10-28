@@ -9,6 +9,24 @@
     "newyears": "auto",
     "aprilfools": "auto"
   },
+  "halloween": {
+    "ritual": true,
+    "zombies": false,
+    "cultists": true,
+    "labInfectedOnly": true,
+    "freeLab": true
+  },
+  "christmas": {
+    "santa": true,
+    "hideout": true,
+    "khorovod": true,
+    "winterClothes": true
+  },
+  "aprilFools": {
+    "winter": true,
+    "santa": true,
+    "ritualAndCult": true
+  },
   "events": [],
   "rotation": {
     "mode": "off",

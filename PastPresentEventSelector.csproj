@@ -6,7 +6,7 @@
     <OutputType>Library</OutputType>
     <AssemblyName>PastPresentEventSelector</AssemblyName>
     <RootNamespace>PPES</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
     <!-- no third-party dependencies, so the release ships only the dll, config and wwwroot -->

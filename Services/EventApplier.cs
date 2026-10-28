@@ -21,6 +21,8 @@ public sealed class EventApplier(
     QuestConfig questConfig,
     AirdropConfig airdropConfig,
     TraderMessageService traderMessages,
+    SeasonalBossRegistry seasonalBosses,
+    SeasonalEventConfig seasonalConfig,
     ICloner cloner,
     ISptLogger<EventApplier> logger) : IOnLoad
 {
@@ -47,7 +49,10 @@ public sealed class EventApplier(
             }
         }
 
-        RaidLocationPatch.Init(config, locations, cloner, logger);
+        if (seasonalBosses.DisableSummonEvent && globals.Configuration?.EventSettings is { } eventSettings)
+            eventSettings.EventActive = false;
+
+        RaidLocationPatch.Init(config, locations, cloner, logger, seasonalBosses, seasonalConfig);
         new RaidLocationPatch().Enable();
         GameStartPatch.Init(traderMessages);
         new GameStartPatch().Enable();

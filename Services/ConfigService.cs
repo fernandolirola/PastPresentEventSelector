@@ -96,6 +96,9 @@ public sealed class ConfigService
         config.View = config.View == "list" ? "list" : "grid";
         config.Seasonal = NormalizeSeasonal(config.Seasonal);
         config.Events = NormalizeEvents(config.Events);
+        config.Halloween ??= new HalloweenParts();
+        config.Christmas ??= new ChristmasParts();
+        config.AprilFools ??= new AprilFoolsParts();
         config.Rotation ??= new RotationSettings();
         config.Rotation.Mode = RotationMode.Normalize(config.Rotation.Mode);
         config.Rotation.Count = Math.Clamp(config.Rotation.Count, 1, EventSchedule.RotationPool.Count());

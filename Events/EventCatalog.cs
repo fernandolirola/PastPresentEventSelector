@@ -178,8 +178,8 @@ public static class EventCatalog
             "Decorated hideout, Khorovod and Santa for New Year's Day.",
             "Hideout decorado, Khorovod e Papai Noel no dia de Ano Novo."),
         new("aprilfools", "April Fools", "1º de abril", ["April fools"],
-            "Winter weather, zombies, gifts and the summoning ritual, all at once.",
-            "Clima de inverno, zumbis, presentes e o ritual de invocação, tudo junto."),
+            "Winter weather, Santa and his gifts, the summoning ritual and the Halloween cultists, all at once.",
+            "Clima de inverno, Papai Noel e seus presentes, o ritual de invocação e os cultistas do Halloween, tudo junto."),
     ];
 
     public static readonly IReadOnlyList<PastEventDef> PastEvents =

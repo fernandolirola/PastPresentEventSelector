@@ -1,5 +1,6 @@
 using PPES.Events;
 using SPTarkov.DI.Annotations;
+using SPTarkov.Server.Core.Models.Spt.Config;
 using SPTarkov.Server.Core.Models.Spt.Tables;
 using SPTarkov.Server.Core.Utils.Cloners;
 
@@ -14,7 +15,7 @@ public sealed record RaidPreview(string MapId, IReadOnlyList<PreviewSpawn> Spawn
 /// what the next raid would look like. Works on unsaved picks too.
 /// </summary>
 [Injectable(InjectionType.Singleton)]
-public sealed class PreviewService(LocationTable locations, ICloner cloner)
+public sealed class PreviewService(LocationTable locations, ICloner cloner, SeasonalBossRegistry seasonalBosses, SeasonalEventConfig seasonalConfig)
 {
     private static readonly string[] MortarMaps = ["bigmap", "woods", "shoreline", "rezervbase"];
     private static readonly HashSet<string> Ignored = new(StringComparer.OrdinalIgnoreCase)
@@ -43,6 +44,13 @@ public sealed class PreviewService(LocationTable locations, ICloner cloner)
         ["skier"] = ("Skier's troops", "Tropas do Skier"),
         ["peacemaker"] = ("Peacekeeper's troops", "Tropas do Peacekeeper"),
         ["gifter"] = ("Santa", "Papai Noel"),
+        ["peacefullZryachiyEvent"] = ("Zryachiy (ritual)", "Zryachiy (ritual)"),
+        ["sectactPriestEvent"] = ("Ritual priests", "Sacerdotes do ritual"),
+        ["ravangeZryachiyEvent"] = ("Vengeful Zryachiy", "Zryachiy Vingativo"),
+        ["sectantOni"] = ("Oni", "Oni"),
+        ["sectantPredvestnik"] = ("Harbinger", "Harbinger"),
+        ["sectantPrizrak"] = ("Ghost", "Ghost"),
+        ["infectedTagilla"] = ("Infected Tagilla", "Tagilla infectado"),
         ["infectedAssault"] = ("Infected", "Infectados"),
         ["infectedPmc"] = ("Infected PMCs", "PMCs infectados"),
         ["infectedCivil"] = ("Infected civilians", "Civis infectados"),
@@ -56,6 +64,8 @@ public sealed class PreviewService(LocationTable locations, ICloner cloner)
 
         var copy = cloner.Clone(source)!;
         var ctx = new RaidContext(copy, mapId, locations, cloner);
+        // seasonal bosses as the server runs them now; seasonal changes only apply after a restart
+        SeasonalRaidContent.Apply(ctx, seasonalBosses, seasonalConfig, cloner);
         foreach (var id in events)
             EventCatalog.Past(id)?.OnRaid?.Invoke(ctx);
 

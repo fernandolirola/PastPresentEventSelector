@@ -26,13 +26,33 @@ public sealed class CompatibilityService(ConfigService config)
 
         if (Find("acidphantasm-botplacementsystem.dll") is not null)
             notes.Add(new(false,
-                "ABPS rebuilds boss spawns after every raid. PPES applies its boss events on top of that, at the start of each raid, so both work together.",
-                "O ABPS refaz os spawns de boss depois de cada raid. O PPES aplica os eventos de boss por cima disso, no início de cada raid, então os dois funcionam juntos."));
+                "ABPS rebuilds boss spawns after every raid and drops the seasonal event bosses. PPES puts its boss events and the active seasonal bosses back at the start of each raid, so both work together.",
+                "O ABPS refaz os spawns de boss depois de cada raid e apaga os bosses dos eventos sazonais. O PPES recoloca os eventos de boss dele e os bosses sazonais ativos no início de cada raid, então os dois funcionam juntos."));
 
         if (Find("ServerValueModifier.dll") is { } svm)
             notes.AddRange(ReadSvm(svm));
 
+        if (Find("Orbit.Server.dll") is { } orbit && ReadOrbitSleepDistance(orbit) is { } sleep)
+            notes.Add(new(false,
+                $"ORBIT Ghost Mode puts bots farther than {sleep:0} m to sleep, event bosses included, so they seem to vanish until you get closer. ORBIT also moves the Goons, so they may leave the spot an event spawned them at.",
+                $"O Ghost Mode do ORBIT põe para dormir os bots a mais de {sleep:0} m, inclusive os bosses de evento, então eles parecem sumir até você chegar perto. O ORBIT também move os Goons, então eles podem sair do lugar onde o evento os colocou."));
+
         return notes;
+    }
+
+    private static double? ReadOrbitSleepDistance(string orbitDir)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(orbitDir, "config.json")).TrimStart('﻿'));
+            var limiter = doc.RootElement.GetProperty("ai_limiter");
+            if (!limiter.TryGetProperty("enabled", out var enabled) || enabled.ValueKind != JsonValueKind.True) return null;
+            return limiter.TryGetProperty("sleep_distance", out var distance) ? distance.GetDouble() : 250;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static IEnumerable<CompatNote> ReadSvm(string svmDir)

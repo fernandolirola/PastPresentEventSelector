@@ -3,6 +3,9 @@
 Pick which events are active on your server, from a page in the server panel.
 
 - **Seasonal events** (Halloween, Christmas, New Year, April Fools) follow their dates on their own. Each one has three modes: **Auto** (on during its dates), **On** (forced, any day) and **Off**.
+- **Halloween parts:** the Zryachiy ritual (2023, with Vengeful Zryachiy), the zombies and infected (2024) and the night of the cult (2025) can be switched on or off on their own. The zombies are off by default, as in the server's stock config. With zombies on, the Lab can keep only the infected, as in stock, and Halloween can open the Lab without a keycard.
+- **Christmas and New Year parts:** Santa on the maps, the hideout tree, the Khorovod tree event (2024) and winter clothes on bots, each on or off.
+- **April Fools parts:** winter weather, Santa and the ritual with the cultists, each on or off.
 - **39 past events** from 2021 to 2026, recreated from server data: boss gatherings and relocations, cultist nights, Free Labs, instant hideout building, flea market changes, bonus experience, weapon case airdrops, the mortar strike and more. Event quests that are still in the game data are unlocked with their event.
 - Every card links to its section on the community wiki, and the quest button lists the whole quest chain of the event with a link to each quest, marking the ones your game does not have.
 
@@ -35,7 +38,8 @@ Nothing is written to the game's files. Every change is made in memory, and spaw
 
 ## Compatibility
 
-- **ABPS (Bot Placement System):** works together. ABPS rebuilds boss spawns after every raid and PPES adds its boss events on top at the start of each raid.
+- **ABPS (Bot Placement System):** works together. ABPS rebuilds boss spawns after every raid and leaves out the seasonal event bosses; PPES adds its boss events and the active seasonal bosses back at the start of each raid.
+- **ORBIT:** no conflict. Its Ghost Mode puts bots farther than its sleep distance to sleep, event bosses included, and it moves the Goons itself, so event bosses can look like they vanished until you get closer.
 - **SVM:** if SVM's Raids section forces Christmas or Halloween, it overrides the seasonal choice here. The page shows a warning when that happens. SVM boss events stack with PPES boss events.
 - Only one main seasonal event drives event quests and items at a time. Turning on Halloween and Christmas together works, but expect odd results.
 

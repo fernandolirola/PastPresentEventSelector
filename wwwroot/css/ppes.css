@@ -589,3 +589,23 @@
 .ppes-label { font-size: 0.78rem; color: var(--spt-text-muted); }
 
 .ppes-number { width: 64px; text-align: center; }
+
+.ppes-parts {
+    display: grid;
+    gap: 4px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px dashed var(--spt-border-strong);
+}
+
+.ppes-parts-off { opacity: 0.6; }
+
+.ppes-part {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.ppes-part input { accent-color: var(--spt-accent); width: 15px; height: 15px; }
