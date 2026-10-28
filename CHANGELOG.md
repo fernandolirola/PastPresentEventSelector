@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.0
+
+- New factions through MoreBotsAPI, each an enemy faction of its own with its name on the kill list and SAIN support: the Cleanup Crew, the Smugglers and the Pillagers.
+- Arena Cleanup Crew on Factory now has two Cleanup Crew groups in place of the regular Scavs.
+- Tarkov Hospitality now has Ref's Cleanup Crew at the Customs dorms, the Shoreline smugglers' base and the Woods village.
+- New events: Smugglers (2024), Smugglers (2026, with every Scav boss on Reserve), Casus belli (Pillagers) and Blackout (Wedge and Black Division on the Lab, needs the Black Division mod).
+- Events that need a mod you do not have are marked on the page and left out of the rotation.
+- New "New factions" preset.
+- PPES now needs MoreBotsAPI and ships a small client prepatcher.
+
 ## 1.1.0
 
 - Halloween parts: switch the Zryachiy ritual (2023, with Vengeful Zryachiy), the zombies and infected (2024) and the night of the cult (2025) on or off on their own.

@@ -6,10 +6,10 @@
     <OutputType>Library</OutputType>
     <AssemblyName>PastPresentEventSelector</AssemblyName>
     <RootNamespace>PPES</RootNamespace>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
-    <!-- no third-party dependencies, so the release ships only the dll, config and wwwroot -->
+    <!-- MoreBotsAPI is referenced, not shipped, so the release still has only the dll, config and wwwroot -->
     <GenerateDependencyFile>false</GenerateDependencyFile>
   </PropertyGroup>
 
@@ -25,6 +25,17 @@
     <PackageReference Include="SPTushonka.Server.Web" Version="4.1.6" ExcludeAssets="runtime" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <SPTServerPath Condition="'$(SPTServerPath)' == ''">C:\SPT\SPT_Runtime</SPTServerPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="MoreBotsServer">
+      <HintPath>$(SPTServerPath)\user\mods\MoreBotsServer\MoreBotsServer.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
   <ItemGroup>
     <Content Remove="config.json" />
     <None Include="config.json" CopyToOutputDirectory="PreserveNewest" />
@@ -33,5 +44,8 @@
     <None Remove="pesquisa-eventos.md" />
     <None Remove="release\**" />
     <Content Remove="release\**" />
+    <Compile Remove="client\**" />
+    <None Remove="client\**" />
+    <Content Remove="client\**" />
   </ItemGroup>
 </Project>

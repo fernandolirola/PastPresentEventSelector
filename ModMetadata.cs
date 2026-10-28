@@ -14,7 +14,10 @@ public record PpesMetadata : IModMetadata, IModBlazorMetadata
     public Version Version { get; init; } = new(typeof(PpesMetadata).Assembly.GetName().Version!.ToString(3));
     public Range SptVersion { get; init; } = new("~4.1.6");
     public List<string>? Incompatibilities { get; init; } = [];
-    public Dictionary<string, Range>? ModDependencies { get; init; } = [];
+    public Dictionary<string, Range>? ModDependencies { get; init; } = new()
+    {
+        ["com.morebotsapi.tacticaltoaster"] = new(">=2.1.1"),
+    };
     public string? Url { get; init; } = "https://github.com/fernandolirola/PastPresentEventSelector";
     public string License { get; init; } = "MIT";
     public bool HasPrepatcher { get; init; } = false;

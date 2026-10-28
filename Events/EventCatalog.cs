@@ -1,3 +1,4 @@
+using PPES.Factions;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common;
 
@@ -28,7 +29,8 @@ public sealed record PastEventDef(
     string[] Quests,
     Action<LoadContext>? OnLoad = null,
     Action<RaidContext>? OnRaid = null,
-    string? Group = null)
+    string? Group = null,
+    string? Requires = null)
 {
     /// <summary>Load-time edits and quest unlocks only take effect on server start; raid edits apply from the next raid.</summary>
     public bool NeedsRestart => OnLoad is not null || Quests.Length > 0;
@@ -36,9 +38,29 @@ public sealed record PastEventDef(
 
 public static class EventCatalog
 {
+    public const string RequiresBlackDivision = "blackdiv";
+
     private const string CustomsZones = "ZoneDormitory,ZoneGasStation,ZoneScavBase";
     private const string ReserveZones = "ZoneRailStrorage,ZonePTOR2,ZoneBarrack,ZoneSubStorage";
     private const string LabZones = "BotZoneFloor1,BotZoneFloor2";
+    private const string BlackDivLab = "BotZoneFloor2,BotZoneFloor1,BotZoneBasement";
+
+    // spread-out zones per map for the faction groups, so they do not all start on top of the players
+    private static readonly Dictionary<string, string> FactionZones = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["bigmap"] = "ZoneCustoms,ZoneFactoryCenter,ZoneOldAZS",
+        ["woods"] = "ZoneBrokenVill,ZoneClearVill,ZoneRoad",
+        ["shoreline"] = "ZoneSmuglers,ZoneBusStation,ZoneRailWays",
+        ["interchange"] = "ZoneTrucks,ZonePowerStation,ZoneOLIPark",
+        ["lighthouse"] = "Zone_Containers,Zone_Village,Zone_LongRoad",
+        ["tarkovstreets"] = "ZoneConstruction,ZoneFactory,ZoneSW01",
+        ["sandbox_high"] = "ZoneSandbox",
+        ["rezervbase"] = "ZoneBunkerStorage,ZonePTOR1,ZoneRailStrorage",
+    };
+
+    private static readonly string[] Smugglers2024Maps = ["bigmap", "woods", "shoreline", "interchange", "lighthouse", "tarkovstreets", "rezervbase", "sandbox_high"];
+    private static readonly string[] Smugglers2026Maps = ["bigmap", "woods", "shoreline", "interchange", "lighthouse", "tarkovstreets", "sandbox_high"];
+    private static readonly string[] PillagerMaps = ["bigmap", "interchange", "lighthouse", "shoreline", "woods"];
 
     // home map of each boss, used to bring them to other maps
     private static readonly (string Boss, string Home)[] ScavBosses =
@@ -80,6 +102,10 @@ public static class EventCatalog
         ["tarkovHospitality"] = "Tarkov_Hospitality_(5_June_2026)",
         ["fullSpeedAhead"] = "Full_Speed_Ahead_(15_May_2026)",
         ["arenaCleanupFactory"] = "Arena_Cleanup_Crew_on_Factory_(1_May_2026)",
+        ["blackout"] = "Blackout_(14_July_2026)",
+        ["casusBelli"] = "Casus_belli_(9_April_2026)",
+        ["smugglers2026"] = "Smugglers_2026_(12_March_2026)",
+        ["smugglers2024"] = "Smugglers_2024_(6_December_2024)",
         ["downTheRabbitHole"] = "Down_the_Rabbit_Hole_(2_December_2023)",
         ["weaponCaseAirdrops"] = "Weapon_Case_Airdrops_(19_June_2023)",
         ["reshalaVsGlukhar"] = "Reshala_vs_Glukhar_(8_May_2026)",
@@ -209,6 +235,18 @@ public static class EventCatalog
                 }
             }),
 
+        new("blackout", "Blackout", "Jul 2026", EventTag.Simulated,
+            "Wedge and his Black Division men are in every Lab raid, with another Black Division team at the gates. The darkness, the new extracts, the keypad codes and the quests are not included. Needs the Black Division mod.",
+            "O Wedge e os homens da Black Division aparecem em toda raid na Lab, com outro time da Black Division nos portões. O apagão, as novas saídas, os códigos dos teclados e as quests não estão incluídos. Precisa do mod Black Division.",
+            [],
+            OnRaid: ctx =>
+            {
+                if (!ctx.Is("laboratory") || !FactionCatalog.BlackDivision) return;
+                Effects.ForceBoss(ctx, "bossWedge", "blackDivIb", "3,3,3,4,4,6", BlackDivLab);
+                Effects.AddGroup(ctx, "blackDivAssault", "2,3", "BotZoneGate1,BotZoneGate2", 100);
+            },
+            Requires: RequiresBlackDivision),
+
         new("bonusExp", "Bonus EXP Weekend", "May to Jul 2026", EventTag.Simulated,
             "You earn about 25% more experience from raids.",
             "Você ganha cerca de 25% a mais de experiência nas raids.",
@@ -234,15 +272,27 @@ public static class EventCatalog
             }),
 
         new("tarkovHospitality", "Tarkov Hospitality", "Jun 2026", EventTag.Simulated,
-            "Reshala, Sanitar and Shturman are in every raid on their maps, and the Goons stay away, as in the PvE version. Ref's Cleanup Crew and the quests are not included.",
-            "Reshala, Sanitar e Shturman aparecem em toda raid nos seus mapas, e os Goons somem, como na versão PvE. A Cleanup Crew do Ref e as quests não estão incluídas.",
+            "Reshala, Sanitar and Shturman are in every raid on their maps, the Goons stay away, as in the PvE version, and Ref's Cleanup Crew holds the Customs dorms, the Shoreline smugglers' base and the Woods village. In the live event the crew ignored PMCs; here they fight everyone. The quests are not included.",
+            "Reshala, Sanitar e Shturman aparecem em toda raid nos seus mapas, os Goons somem, como na versão PvE, e a Cleanup Crew do Ref ocupa os dormitórios da Customs, a base dos contrabandistas da Shoreline e a vila da Woods. No evento original eles ignoravam PMCs; aqui eles atacam todo mundo. As quests não estão incluídas.",
             [],
             OnRaid: ctx =>
             {
                 ctx.Remove("bossKnight");
-                if (ctx.Is("bigmap")) ctx.SetChance("bossBully", 100);
-                if (ctx.Is("shoreline")) ctx.SetChance("bossSanitar", 100);
-                if (ctx.Is("woods")) ctx.SetChance("bossKojaniy", 100);
+                if (ctx.Is("bigmap"))
+                {
+                    ctx.SetChance("bossBully", 100);
+                    Effects.AddGroup(ctx, FactionCatalog.CleanupCrew, "2,3", "ZoneDormitory", 100);
+                }
+                if (ctx.Is("shoreline"))
+                {
+                    ctx.SetChance("bossSanitar", 100);
+                    Effects.AddGroup(ctx, FactionCatalog.CleanupCrew, "2,3", "ZoneSmuglers", 100);
+                }
+                if (ctx.Is("woods"))
+                {
+                    ctx.SetChance("bossKojaniy", 100);
+                    Effects.AddGroup(ctx, FactionCatalog.CleanupCrew, "2,3", "ZoneBrokenVill", 100);
+                }
             },
             Group: "goons"),
 
@@ -268,14 +318,16 @@ public static class EventCatalog
             Group: "goons"),
 
         new("arenaCleanupFactory", "Arena Cleanup Crew on Factory", "May 2026", EventTag.Simulated,
-            "Tagilla and Killa team up in every Day Factory raid. The Cleanup Crew itself is not included.",
-            "Tagilla e Killa juntos em toda raid na Factory de dia. A Cleanup Crew em si não está incluída.",
+            "Tagilla and Killa team up in every Day Factory raid, and two Cleanup Crew groups of 3 or 4 take the place of the regular Scavs.",
+            "Tagilla e Killa juntos em toda raid na Factory de dia, e dois grupos de 3 ou 4 da Cleanup Crew tomam o lugar dos Scavs normais.",
             [],
             OnRaid: ctx =>
             {
                 if (!ctx.Is("factory4_day")) return;
                 ctx.SetChance("bossTagilla", 100);
                 ctx.AddFrom("interchange", "bossKilla", "BotZone", 100);
+                if (Effects.AddGroup(ctx, FactionCatalog.CleanupCrew, "2,3", "BotZone", 100, groups: 2))
+                    ctx.Location.Waves?.RemoveAll(w => w.WildSpawnType == WildSpawnType.assault);
             }),
 
         new("reshalaVsGlukhar", "Reshala vs Glukhar", "May 2026", EventTag.Simulated,
@@ -290,6 +342,26 @@ public static class EventCatalog
                 ctx.AddFrom("rezervbase", "bossGluhar", CustomsZones, 100);
             },
             Group: "glukhar"),
+
+        new("casusBelli", "Casus belli", "Apr 2026", EventTag.Simulated,
+            "Pillagers, a new enemy faction, roam Customs, Interchange, Lighthouse, Shoreline and Woods in groups of 3 or 4. The quests are not included.",
+            "Os Pillagers, uma facção inimiga nova, andam em grupos de 3 ou 4 pela Customs, Interchange, Lighthouse, Shoreline e Woods. As quests não estão incluídas.",
+            [],
+            OnRaid: ctx =>
+            {
+                if (ctx.Is(PillagerMaps)) Effects.AddFactionGroup(ctx, FactionCatalog.Pillager, "2,3");
+            }),
+
+        new("smugglers2026", "Smugglers (2026)", "Mar 2026", EventTag.Simulated,
+            "Smugglers come back in groups of 3 or 4 on Customs, Woods, Shoreline, Interchange, Lighthouse, Streets and Ground Zero 21+, and every Scav boss is on Reserve. The quests and the airdrop cases are not included.",
+            "Os Smugglers voltam em grupos de 3 ou 4 na Customs, Woods, Shoreline, Interchange, Lighthouse, Streets e Ground Zero 21+, e todo chefe Scav aparece na Reserve. As quests e as maletas nos airdrops não estão incluídas.",
+            [],
+            OnRaid: ctx =>
+            {
+                if (ctx.Is(Smugglers2026Maps)) Effects.AddFactionGroup(ctx, FactionCatalog.Smuggler, "2,3");
+                if (ctx.Is("rezervbase")) Effects.GatherScavBosses(ctx, "rezervbase", ReserveZones);
+            },
+            Group: "smugglers"),
 
         new("permanentBossPresence", "Permanent Boss Presence", "2023 to 2026", EventTag.Simulated,
             "Every boss spawns on its own maps in every raid (Partisan keeps his own rules). Also unlocks the quest Hint.",
@@ -326,6 +398,16 @@ public static class EventCatalog
             {
                 if (ctx.Is("bigmap", "woods", "shoreline", "factory4_night")) ctx.SetChance("sectantPriest", 100);
             }),
+
+        new("smugglers2024", "Smugglers (2024)", "Dec 2024", EventTag.Simulated,
+            "Smugglers, a new enemy faction, show up in groups of 3 on every map except Ground Zero for low levels and the Lab. The quests are not included.",
+            "Os Smugglers, uma facção inimiga nova, aparecem em grupos de 3 em todo mapa, menos o Ground Zero de nível baixo e a Lab. As quests não estão incluídas.",
+            [],
+            OnRaid: ctx =>
+            {
+                if (ctx.Is(Smugglers2024Maps)) Effects.AddFactionGroup(ctx, FactionCatalog.Smuggler, "2");
+            },
+            Group: "smugglers"),
 
         new("mortarStrike", "Mortar Strike", "Sep 2024", EventTag.Experimental,
             "Mortar barrages hit Customs, Woods, Shoreline and Reserve, with a special airdrop carrying radar parts. Unlocks the quest Into the Inferno.",
@@ -567,6 +649,13 @@ public static class EventCatalog
 
     public static bool IsKnownPast(string id) => Past(id) is not null;
 
+    /// <summary>The mod an event needs that is not installed, or null when it can run.</summary>
+    public static string? MissingRequirement(PastEventDef e) => e.Requires switch
+    {
+        RequiresBlackDivision when !FactionCatalog.BlackDivision => "Black Division",
+        _ => null,
+    };
+
     internal static class Effects
     {
         public static void GatherScavBosses(RaidContext ctx, string map, string zones)
@@ -575,25 +664,50 @@ public static class EventCatalog
                 ctx.AddFrom(home, boss, home == map ? null : zones, 100);
         }
 
-        public static void AddGroup(RaidContext ctx, string role, string escortAmount, string zones, double chance)
+        /// <summary>Adds groups of a role until the map has <paramref name="groups"/> of them in these zones. False when the role cannot spawn.</summary>
+        public static bool AddGroup(RaidContext ctx, string role, string escortAmount, string zones, double chance, int groups = 1)
         {
-            if (ctx.Location.BossLocationSpawn?.Any(b => b.BossName == role && b.BossZone == zones) == true)
+            if (FactionCatalog.ByRole(role) is not null && !FactionCatalog.IsReady(role)) return false;
+            var existing = ctx.Location.BossLocationSpawn?.Count(b => b.BossName == role && b.BossZone == zones) ?? 0;
+            if (existing > 0) ctx.SetChance(role, chance);
+            for (var i = existing; i < groups; i++)
             {
-                ctx.SetChance(role, chance);
+                if (ctx.CloneAnySpawn() is not { } spawn) return false;
+                spawn.BossName = role;
+                spawn.BossEscortType = role;
+                spawn.BossEscortAmount = escortAmount;
+                spawn.BossDifficulty = "normal";
+                spawn.BossEscortDifficulty = "normal";
+                spawn.BossZone = zones;
+                spawn.BossChance = chance;
+                spawn.Supports = [];
+                spawn.TriggerId = "";
+                spawn.TriggerName = "";
+                spawn.Time = -1;
+                spawn.IgnoreMaxBots = true;
+                ctx.AddSpawn(spawn);
+            }
+            return true;
+        }
+
+        public static void AddFactionGroup(RaidContext ctx, string role, string escortAmount) =>
+            AddGroup(ctx, role, escortAmount, FactionZones.GetValueOrDefault(ctx.MapId, ""), 100);
+
+        /// <summary>Makes a boss spawn every raid, keeping a mod's own entry (its trigger included) when there is one.</summary>
+        public static void ForceBoss(RaidContext ctx, string boss, string escort, string escortAmount, string zones)
+        {
+            var spawns = ctx.Location.BossLocationSpawn?.Where(b => string.Equals(b.BossName, boss, StringComparison.OrdinalIgnoreCase)).ToList() ?? [];
+            if (spawns.Count > 0)
+            {
+                foreach (var spawn in spawns) spawn.BossChance = 100;
                 return;
             }
-            if (ctx.CloneAnySpawn() is not { } spawn) return;
-            spawn.BossName = role;
-            spawn.BossEscortType = role;
-            spawn.BossEscortAmount = escortAmount;
-            spawn.BossZone = zones;
-            spawn.BossChance = chance;
-            spawn.Supports = [];
-            spawn.TriggerId = "";
-            spawn.TriggerName = "";
-            spawn.Time = -1;
-            spawn.IgnoreMaxBots = true;
-            ctx.AddSpawn(spawn);
+            if (AddGroup(ctx, boss, escortAmount, zones, 100))
+            {
+                var added = ctx.Location.BossLocationSpawn!.Last();
+                added.BossEscortType = escort;
+                added.ForceSpawn = true;
+            }
         }
 
         public static void RemoveAccessKeys(LoadContext ctx, params string[] maps)

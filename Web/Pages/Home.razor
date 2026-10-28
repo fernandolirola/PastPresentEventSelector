@@ -725,8 +725,13 @@
     {
         var mates = GroupMates(e).ToList();
         var overlaps = Overlaps(e);
-        if (mates.Count == 0 && overlaps.Count == 0) return;
+        var missing = EventCatalog.MissingRequirement(e);
+        if (mates.Count == 0 && overlaps.Count == 0 && missing is null) return;
         <div class="ppes-conflicts">
+            @if (missing is not null)
+            {
+                <span class="ppes-conflict"><MudIcon Icon="@Icons.Material.Filled.Extension" /> @T($"Precisa do mod {missing}, que não está instalado. Sem ele o evento não faz nada.", $"Needs the {missing} mod, which is not installed. Without it the event does nothing.")</span>
+            }
             @if (mates.Count > 0)
             {
                 <span class="ppes-conflict"><MudIcon Icon="@Icons.Material.Filled.Block" /> @T("Só um por vez com: ", "Only one at a time with: ")@string.Join(", ", mates.Select(m => m.Name))</span>

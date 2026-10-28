@@ -12,7 +12,7 @@ public sealed record RotationState(bool Active, IReadOnlyList<string> Picks, Dat
 /// </summary>
 public static class EventSchedule
 {
-    public static IEnumerable<PastEventDef> RotationPool => EventCatalog.PastEvents.Where(e => !e.NeedsRestart);
+    public static IEnumerable<PastEventDef> RotationPool => EventCatalog.PastEvents.Where(e => !e.NeedsRestart && EventCatalog.MissingRequirement(e) is null);
 
     public static RotationState Rotation(PpesConfig config, DateTime now)
     {

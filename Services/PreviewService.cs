@@ -55,6 +55,11 @@ public sealed class PreviewService(LocationTable locations, ICloner cloner, Seas
         ["infectedPmc"] = ("Infected PMCs", "PMCs infectados"),
         ["infectedCivil"] = ("Infected civilians", "Civis infectados"),
         ["infectedLaborant"] = ("Infected lab staff", "Laboratoristas infectados"),
+        ["ppesCleanupCrew"] = ("Cleanup Crew", "Cleanup Crew"),
+        ["ppesSmuggler"] = ("Smugglers", "Contrabandistas"),
+        ["ppesPillager"] = ("Pillagers", "Saqueadores"),
+        ["bossWedge"] = ("Wedge", "Wedge"),
+        ["blackDivAssault"] = ("Black Division", "Black Division"),
     };
 
     public RaidPreview Preview(string mapId, IReadOnlyCollection<string> events)
