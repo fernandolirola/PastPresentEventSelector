@@ -1,0 +1,660 @@
+using SPTarkov.Server.Core.Models.Common;
+using SPTarkov.Server.Core.Models.Eft.Common;
+
+namespace PPES.Events;
+
+public enum EventTag
+{
+    /// <summary>SPT already has everything; PPES only switches it on.</summary>
+    Ready,
+    /// <summary>Recreated with server data (spawns, globals, traders).</summary>
+    Simulated,
+    /// <summary>Dormant game code switched back on; may not work on every map.</summary>
+    Experimental,
+}
+
+public sealed record SeasonalEventDef(string Id, string NameEn, string NamePt, string[] SptNames, string DescEn, string DescPt);
+
+/// <param name="Gated">SPT hides this quest outside the event, so it is the one PPES unlocks; the rest of the chain follows from it.</param>
+public sealed record QuestLink(string Name, string Url, bool Gated);
+
+public sealed record PastEventDef(
+    string Id,
+    string Name,
+    string When,
+    EventTag Tag,
+    string DescEn,
+    string DescPt,
+    string[] Quests,
+    Action<LoadContext>? OnLoad = null,
+    Action<RaidContext>? OnRaid = null,
+    string? Group = null)
+{
+    /// <summary>Load-time edits and quest unlocks only take effect on server start; raid edits apply from the next raid.</summary>
+    public bool NeedsRestart => OnLoad is not null || Quests.Length > 0;
+}
+
+public static class EventCatalog
+{
+    private const string CustomsZones = "ZoneDormitory,ZoneGasStation,ZoneScavBase";
+    private const string ReserveZones = "ZoneRailStrorage,ZonePTOR2,ZoneBarrack,ZoneSubStorage";
+    private const string LabZones = "BotZoneFloor1,BotZoneFloor2";
+
+    // home map of each boss, used to bring them to other maps
+    private static readonly (string Boss, string Home)[] ScavBosses =
+    [
+        ("bossBully", "bigmap"),
+        ("bossKojaniy", "woods"),
+        ("bossSanitar", "shoreline"),
+        ("bossGluhar", "rezervbase"),
+        ("bossKilla", "interchange"),
+        ("bossTagilla", "factory4_day"),
+        ("bossKolontay", "tarkovstreets"),
+    ];
+
+    private static readonly string[] MainTraders =
+    [
+        "54cb50c76803fa8b248b4571", // Prapor
+        "54cb57776803fa99248b456e", // Therapist
+        "58330581ace78e27b8b10cee", // Skier
+        "5935c25fb3acc3127c3d8cd9", // Peacekeeper
+        "5a7c2eca46aef81a7ca2145d", // Mechanic
+        "5ac3b934156ae10c4430e83c", // Ragman
+        "5c0647fdd443bc2504c2d371", // Jaeger
+        "6617beeaa9cfa777ca915b7c", // Ref
+    ];
+
+    private const string WikiBase = "https://escapefromtarkov.fandom.com/wiki/";
+
+    // section anchors of the wiki Events page, checked against the wiki API
+    private static readonly Dictionary<string, string> WikiSections = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["halloween"] = "Halloween_2025_(22_October_2025)",
+        ["christmas"] = "Khorovod_(26_December_2024)",
+        ["newyears"] = "Kolotun_(24_December_2025)",
+        ["aprilfools"] = "April_Fools_(1_April_2026)",
+        ["shiftingBalance"] = "Shifting_Balance_(8_September_2026)",
+        ["lighthouseAirdrops"] = "Lighthouse_Airdrops_(26_September_2026)",
+        ["bonusExp"] = "Bonus_EXP_weekend_(24_July_2026)",
+        ["wildWildWoods"] = "Wild_Wild_Woods_(25_June_2026)",
+        ["tarkovHospitality"] = "Tarkov_Hospitality_(5_June_2026)",
+        ["fullSpeedAhead"] = "Full_Speed_Ahead_(15_May_2026)",
+        ["arenaCleanupFactory"] = "Arena_Cleanup_Crew_on_Factory_(1_May_2026)",
+        ["downTheRabbitHole"] = "Down_the_Rabbit_Hole_(2_December_2023)",
+        ["weaponCaseAirdrops"] = "Weapon_Case_Airdrops_(19_June_2023)",
+        ["reshalaVsGlukhar"] = "Reshala_vs_Glukhar_(8_May_2026)",
+        ["permanentBossPresence"] = "Permanent_Boss_Presence_(29_July_2026)",
+        ["softcore"] = "Softcore_(8_October_2025)",
+        ["targradTales"] = "Targrad_Tales_(20_August_2025)",
+        ["cultistPilgrimage"] = "Cultist_Pilgrimage_(18_December_2024)",
+        ["mortarStrike"] = "Mortar_Strike_(26_September_2024)",
+        ["closedFlea"] = "Closed_Flea_Market_(13_August_2024)",
+        ["supplyAndDemand"] = "Supply_and_Demand_(2_August_2024)",
+        ["armsRace"] = "Arms_Race_(16_July_2024)",
+        ["keyToSalvation"] = "A_Key_to_Salvation_(24_June_2024)",
+        ["hustle"] = "Hustle_(31_May_2024)",
+        ["tarkovMystery"] = "The_Tarkov_Mystery_(15_May_2024)",
+        ["brothersReunited"] = "Brothers_Reunited_(17_April_2024)",
+        ["freeLabs"] = "Free_Lab_Access_Event_(12_May_2024)",
+        ["unlockedTraders"] = "Unlocked_Traders_%26_Discounts_(25_December_2024)",
+        ["ammoShortage"] = "Ammo_Shortage_(25_November_2023)",
+        ["fleaPromotion"] = "Flea_Market_Promotion_(22_December_2023)",
+        ["instantHideout"] = "Instant_Hideout_Building_(23_December_2023)",
+        ["bossesAndRogues"] = "Bosses_%26_Rogues_Wander_(3_July_2023)",
+        ["terraGroupTrail"] = "The_TerraGroup_Trail_(28_July_2023)",
+        ["hardcoreMode"] = "Hardcore_Mode_(7_July_2023)",
+        ["bloodhounds"] = "Bloodhounds_Reveal_(9_June_2023)",
+        ["bandages"] = "Bandages_Event_(7_April_2023)",
+        ["scavOnLabs"] = "Scav_On_Labs_Event_(4_December_2022)",
+        ["boostedSkills"] = "Boosted_Skill_Leveling_Event_(17_December_2022)",
+        ["sanitarEvent"] = "Sanitar_Event_(11_November_2022)",
+        ["airdropTraffic"] = "Airdrops_(19_March_2026)",
+        ["meetingOfBosses"] = "Meeting_of_the_Bosses_(Day_3)",
+        ["heatwave"] = "Heatwave_(29_July_2021)",
+        ["bossesGathering"] = "June_2021_Pre-Wipe_Event_(20_June_2021)",
+    };
+
+    // wiki page titles; the game's own names differ in places (Cyrillic letters, "Hustle" twice)
+    private static readonly Dictionary<string, string> QuestTitles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["647710905320c660d91c15a5"] = "Hint",
+        ["6863cf925eaeb676d50a9651"] = "Friend from Norvinsk - Part 1",
+        ["64916da7ad4e722c106f2345"] = "Failed Setup",
+        ["66e01aca214f88109006a4b5"] = "Into the Inferno",
+        ["66a74c628410476dd65543be"] = "Gunsmith - Special Order",
+        ["668bcccc167d507eb01a268b"] = "Import Control",
+        ["6672ec2a2b6f3b71be794cc5"] = "A Key to Salvation",
+        ["6658a15615cbb1b2c6014d5b"] = "Hustle (2024)",
+        ["6603fe74e773dcf3b0099f88"] = "The Tarkov Mystery",
+        ["655e427b64d09b4122018228"] = "The Punisher - Harvest",
+        ["649570491bb4d158bc4d0168"] = "Tourists",
+        ["649567f359eab30d1b7c9585"] = "Hustle (2023)",
+        ["649af47d717cb30e7e4b5e26"] = "Cocktail Tasting",
+        ["64764abcd125ab430a14ccb5"] = "Bloodhounds (quest)",
+        ["641dbfd7f43eda9d810d7137"] = "Important Patient",
+        ["66e3e2ee2136472d220bcb36"] = "Night of The Cult",
+        ["670404a2ea1caa8f2e0be106"] = "Don’t Believe Your Eyes",
+        ["67190f6c1b3f4964d90d71e9"] = "Global Threat",
+        ["675031be899713ccad00060c"] = "Christmas Dinner",
+        ["675031d3884e1da4a90b3bc9"] = "Chilly",
+        ["6750320e23fc8fd9cc087d14"] = "Holiday Beyond the Means",
+        ["67503247622398376d0b57cd"] = "Khorovod",
+        ["675031e1f300496cc4104450"] = "Hide in Plain Sight",
+        ["675031f57775aada6b0f96a1"] = "Cheer Up",
+    };
+
+    // seasonal quests SPT shows only while the event is on (configs/quest.json)
+    private static readonly Dictionary<string, string[]> SeasonalQuestIds = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["halloween"] = ["66e3e2ee2136472d220bcb36", "670404a2ea1caa8f2e0be106", "67190f6c1b3f4964d90d71e9"],
+        ["christmas"] = ["675031be899713ccad00060c", "675031d3884e1da4a90b3bc9", "6750320e23fc8fd9cc087d14", "67503247622398376d0b57cd", "675031e1f300496cc4104450", "675031f57775aada6b0f96a1"],
+    };
+
+    public static string? WikiUrl(string eventId) =>
+        WikiSections.TryGetValue(eventId, out var anchor) ? WikiBase + "Events#" + anchor : null;
+
+    /// <summary>The event's whole quest list from the wiki, plus the quests PPES unlocks, gated ones first.</summary>
+    public static IReadOnlyList<QuestLink> EventQuests(string eventId, IEnumerable<string> gatedIds)
+    {
+        var gated = gatedIds.Where(QuestTitles.ContainsKey).Select(id => QuestTitles[id]).ToList();
+        var names = gated.Concat(WikiEventQuests.ByEvent.GetValueOrDefault(eventId) ?? []).Distinct(StringComparer.OrdinalIgnoreCase);
+        return names
+            .Select(name => new QuestLink(name, WikiBase + Uri.EscapeDataString(name.Replace(' ', '_')), gated.Contains(name, StringComparer.OrdinalIgnoreCase)))
+            .ToList();
+    }
+
+    public static IReadOnlyList<QuestLink> SeasonalQuests(string seasonalId) =>
+        EventQuests(seasonalId, SeasonalQuestIds.GetValueOrDefault(seasonalId) ?? []);
+
+    public static readonly IReadOnlyList<SeasonalEventDef> Seasonal =
+    [
+        new("halloween", "Halloween", "Halloween", ["halloween"],
+            "Zombies, cultist bosses, pumpkins, Tagilla with a scythe and the summoning ritual. Halloween quests unlock.",
+            "Zumbis, chefes cultistas, abóboras, Tagilla com foice e o ritual de invocação. Libera as quests de Halloween."),
+        new("christmas", "Christmas", "Natal", ["christmas", "christmas January"],
+            "Santa on the maps, a decorated hideout, the Khorovod tree event, winter gear and the Christmas quests.",
+            "Papai Noel nos mapas, hideout decorado, evento da árvore (Khorovod), roupas de inverno e as quests de Natal."),
+        new("newyears", "New Year", "Ano Novo", ["newyears"],
+            "Decorated hideout, Khorovod and Santa for New Year's Day.",
+            "Hideout decorado, Khorovod e Papai Noel no dia de Ano Novo."),
+        new("aprilfools", "April Fools", "1º de abril", ["April fools"],
+            "Winter weather, zombies, gifts and the summoning ritual, all at once.",
+            "Clima de inverno, zumbis, presentes e o ritual de invocação, tudo junto."),
+    ];
+
+    public static readonly IReadOnlyList<PastEventDef> PastEvents =
+    [
+        new("shiftingBalance", "Shifting Balance", "Sep 2026", EventTag.Simulated,
+            "Glukhar moves from Reserve to the water treatment plant on Lighthouse and is there in every raid. The event quests are not included.",
+            "O Glukhar sai da Reserve para a estação de tratamento de água da Lighthouse e aparece em toda raid. As quests do evento não estão incluídas.",
+            [],
+            OnRaid: ctx =>
+            {
+                if (ctx.Is("rezervbase")) ctx.Remove("bossGluhar");
+                if (ctx.Is("lighthouse")) ctx.AddFrom("rezervbase", "bossGluhar", "Zone_TreatmentContainers", 100);
+            },
+            Group: "glukhar"),
+
+        new("lighthouseAirdrops", "Lighthouse Airdrops", "Sep 2026", EventTag.Simulated,
+            "Lighthouse gets an airdrop in every raid, sometimes two. The extra valuable loot is not included.",
+            "A Lighthouse recebe airdrop em toda raid, às vezes dois. O loot extra valioso não está incluído.",
+            [],
+            OnRaid: ctx =>
+            {
+                if (!ctx.Is("lighthouse")) return;
+                foreach (var airdrop in ctx.Location.AirdropParameters ?? [])
+                {
+                    airdrop.PlaneAirdropChance = 1;
+                    airdrop.PlaneAirdropMax = Math.Max(airdrop.PlaneAirdropMax ?? 1, 2);
+                }
+            }),
+
+        new("bonusExp", "Bonus EXP Weekend", "May to Jul 2026", EventTag.Simulated,
+            "You earn about 25% more experience from raids.",
+            "Você ganha cerca de 25% a mais de experiência nas raids.",
+            [],
+            OnLoad: ctx =>
+            {
+                var end = ctx.Globals.Configuration!.Exp!.MatchEnd!;
+                end.SurvivedMultiplier *= 1.25;
+                end.RunnerMultiplier *= 1.25;
+                end.MiaMultiplier *= 1.25;
+                end.KilledMultiplier *= 1.25;
+                end.LeftMultiplier *= 1.25;
+            }),
+
+        new("wildWildWoods", "Wild Wild Woods", "Jun 2026", EventTag.Simulated,
+            "Shturman is in every Woods raid and the Scav cooldown is four times shorter. The quests, barters and extra loot are not included.",
+            "O Shturman aparece em toda raid na Woods e o tempo de espera do Scav fica quatro vezes menor. As quests, trocas e o loot extra não estão incluídos.",
+            [],
+            OnLoad: ctx => ctx.Globals.Configuration!.SavagePlayCooldown /= 4,
+            OnRaid: ctx =>
+            {
+                if (ctx.Is("woods")) ctx.SetChance("bossKojaniy", 100);
+            }),
+
+        new("tarkovHospitality", "Tarkov Hospitality", "Jun 2026", EventTag.Simulated,
+            "Reshala, Sanitar and Shturman are in every raid on their maps, and the Goons stay away, as in the PvE version. Ref's Cleanup Crew and the quests are not included.",
+            "Reshala, Sanitar e Shturman aparecem em toda raid nos seus mapas, e os Goons somem, como na versão PvE. A Cleanup Crew do Ref e as quests não estão incluídas.",
+            [],
+            OnRaid: ctx =>
+            {
+                ctx.Remove("bossKnight");
+                if (ctx.Is("bigmap")) ctx.SetChance("bossBully", 100);
+                if (ctx.Is("shoreline")) ctx.SetChance("bossSanitar", 100);
+                if (ctx.Is("woods")) ctx.SetChance("bossKojaniy", 100);
+            },
+            Group: "goons"),
+
+        new("fullSpeedAhead", "Full Speed Ahead", "May 2026", EventTag.Simulated,
+            "Rogues patrol Shoreline and Reserve, Glukhar is in every Reserve raid and the Goons only roam Shoreline, from the gas station to the power station. The quests are not included.",
+            "Rogues patrulham a Shoreline e a Reserve, o Glukhar aparece em toda raid na Reserve e os Goons só andam pela Shoreline, do posto de gasolina à hidrelétrica. As quests não estão incluídas.",
+            [],
+            OnRaid: ctx =>
+            {
+                if (ctx.Is("bigmap", "woods", "lighthouse")) ctx.Remove("bossKnight");
+                if (ctx.Is("rezervbase"))
+                {
+                    ctx.AddFrom("rezervbase", "bossGluhar", null, 100);
+                    Effects.AddGroup(ctx, "exUsec", "2,3", ReserveZones, 100);
+                }
+                if (ctx.Is("shoreline"))
+                {
+                    ctx.Remove("bossKnight");
+                    ctx.AddFrom("bigmap", "bossKnight", "ZoneGasStation,ZonePowerStation", 100);
+                    Effects.AddGroup(ctx, "exUsec", "2,3", "ZoneMeteoStation,ZonePowerStation", 100);
+                }
+            },
+            Group: "goons"),
+
+        new("arenaCleanupFactory", "Arena Cleanup Crew on Factory", "May 2026", EventTag.Simulated,
+            "Tagilla and Killa team up in every Day Factory raid. The Cleanup Crew itself is not included.",
+            "Tagilla e Killa juntos em toda raid na Factory de dia. A Cleanup Crew em si não está incluída.",
+            [],
+            OnRaid: ctx =>
+            {
+                if (!ctx.Is("factory4_day")) return;
+                ctx.SetChance("bossTagilla", 100);
+                ctx.AddFrom("interchange", "bossKilla", "BotZone", 100);
+            }),
+
+        new("reshalaVsGlukhar", "Reshala vs Glukhar", "May 2026", EventTag.Simulated,
+            "Reshala is in every Customs raid and Glukhar moves from Reserve to Customs to fight him.",
+            "Reshala aparece em toda raid na Customs e o Glukhar sai da Reserve para enfrentá-lo lá.",
+            [],
+            OnRaid: ctx =>
+            {
+                if (ctx.Is("rezervbase")) ctx.Remove("bossGluhar");
+                if (!ctx.Is("bigmap")) return;
+                ctx.SetChance("bossBully", 100);
+                ctx.AddFrom("rezervbase", "bossGluhar", CustomsZones, 100);
+            },
+            Group: "glukhar"),
+
+        new("permanentBossPresence", "Permanent Boss Presence", "2023 to 2026", EventTag.Simulated,
+            "Every boss spawns on its own maps in every raid (Partisan keeps his own rules). Also unlocks the quest Hint.",
+            "Todo chefe aparece nos seus mapas em toda raid (o Partisan segue as regras dele). Também libera a quest Hint.",
+            ["647710905320c660d91c15a5"],
+            OnRaid: ctx =>
+            {
+                foreach (var spawn in ctx.Location.BossLocationSpawn ?? [])
+                    if (spawn.BossName is { } name && name.StartsWith("boss", StringComparison.OrdinalIgnoreCase)
+                        && name != "bossPartisan" && string.IsNullOrEmpty(spawn.TriggerId))
+                        spawn.BossChance = 100;
+            }),
+
+        new("softcore", "Softcore", "Oct 2025", EventTag.Simulated,
+            "The Lab and the Labyrinth need no keycard and you can carry 50% more before being overweight.",
+            "A Lab e o Labirinto não pedem cartão e você carrega 50% a mais antes de ficar com sobrepeso.",
+            [],
+            OnLoad: ctx =>
+            {
+                Effects.RemoveAccessKeys(ctx, "laboratory", "labyrinth");
+                Effects.ScaleOverweight(ctx, 1.5);
+            }),
+
+        new("targradTales", "Targrad Tales", "Aug 2025", EventTag.Ready,
+            "Unlocks the quest chain Friend from Norvinsk.",
+            "Libera a cadeia de quests Friend from Norvinsk.",
+            ["6863cf925eaeb676d50a9651"]),
+
+        new("cultistPilgrimage", "Cultist Pilgrimage", "Dec 2024", EventTag.Simulated,
+            "Cultists are in every night raid on Customs, Woods, Shoreline and Night Factory. Also unlocks the quest Failed Setup.",
+            "Cultistas em toda raid noturna na Customs, Woods, Shoreline e Factory à noite. Também libera a quest Failed Setup.",
+            ["64916da7ad4e722c106f2345"],
+            OnRaid: ctx =>
+            {
+                if (ctx.Is("bigmap", "woods", "shoreline", "factory4_night")) ctx.SetChance("sectantPriest", 100);
+            }),
+
+        new("mortarStrike", "Mortar Strike", "Sep 2024", EventTag.Experimental,
+            "Mortar barrages hit Customs, Woods, Shoreline and Reserve, with a special airdrop carrying radar parts. Unlocks the quest Into the Inferno.",
+            "Bombardeios de morteiro na Customs, Woods, Shoreline e Reserve, com um airdrop especial com peças do radar. Libera a quest Into the Inferno.",
+            ["66e01aca214f88109006a4b5"],
+            OnLoad: ctx => Effects.EnableMortarStrike(ctx, ["bigmap", "Woods", "Shoreline", "RezervBase"])),
+
+        new("closedFlea", "Closed Flea Market", "Aug 2024", EventTag.Simulated,
+            "The flea market only opens at level 99, so in practice it is closed.",
+            "O mercado só abre no nível 99, ou seja, na prática fica fechado.",
+            [],
+            OnLoad: ctx => ctx.Globals.Configuration!.RagFair!.MinUserLevel = 99,
+            Group: "flea"),
+
+        new("supplyAndDemand", "Supply and Demand", "Aug 2024", EventTag.Ready,
+            "Unlocks the quest Gunsmith - Special Order. Mechanic's price increase is not included.",
+            "Libera a quest Gunsmith - Special Order. O aumento de preços do Mechanic não está incluído.",
+            ["66a74c628410476dd65543be"]),
+
+        new("armsRace", "Arms Race", "Jul 2024", EventTag.Ready,
+            "Unlocks the quest Import Control.",
+            "Libera a quest Import Control.",
+            ["668bcccc167d507eb01a268b"]),
+
+        new("keyToSalvation", "A Key to Salvation", "Jun 2024", EventTag.Ready,
+            "Unlocks the quest A Key to Salvation.",
+            "Libera a quest A Key to Salvation.",
+            ["6672ec2a2b6f3b71be794cc5"]),
+
+        new("hustle", "Hustle", "May 2024", EventTag.Simulated,
+            "All Scav bosses, the Goons and the Cultists gather on Reserve in every raid. Unlocks the quest Hustle.",
+            "Todos os chefes Scav, os Goons e os Cultistas se reúnem na Reserve em toda raid. Libera a quest Hustle.",
+            ["6658a15615cbb1b2c6014d5b"],
+            OnRaid: ctx =>
+            {
+                if (!ctx.Is("rezervbase")) return;
+                Effects.GatherScavBosses(ctx, "rezervbase", ReserveZones);
+                ctx.AddFrom("bigmap", "bossKnight", ReserveZones, 100);
+                ctx.AddFrom("bigmap", "sectantPriest", ReserveZones, 100);
+            }),
+
+        new("tarkovMystery", "The Tarkov Mystery", "May 2024", EventTag.Simulated,
+            "Peacekeeper's troops patrol Shoreline and Skier's troops patrol Customs in every raid. Unlocks the quest The Tarkov Mystery.",
+            "Tropas do Peacekeeper na Shoreline e do Skier na Customs em toda raid. Libera a quest The Tarkov Mystery.",
+            ["6603fe74e773dcf3b0099f88"],
+            OnRaid: ctx =>
+            {
+                if (ctx.Is("shoreline")) ctx.SetChance("peacemaker", 100);
+                if (ctx.Is("bigmap"))
+                    Effects.AddGroup(ctx, "skier", "2,2,3,3,3,4,4,5", "ZoneScavBase,ZoneDormitory,ZoneFactoryCenter,ZoneCustoms,ZoneBrige", 100);
+            }),
+
+        new("brothersReunited", "Brothers Reunited", "Apr 2024", EventTag.Simulated,
+            "Tagilla joins Killa at the Kiba store on Interchange in every raid.",
+            "O Tagilla se junta ao Killa na loja Kiba, na Interchange, em toda raid.",
+            [],
+            OnRaid: ctx =>
+            {
+                if (!ctx.Is("interchange")) return;
+                ctx.SetChance("bossKilla", 100);
+                ctx.AddFrom("factory4_day", "bossTagilla", "ZoneCenter,ZoneCenterBot", 100);
+            }),
+
+        new("freeLabs", "Free Labs", "2022 to 2024", EventTag.Simulated,
+            "Entering the Lab does not need a keycard.",
+            "Entrar na Lab não precisa de cartão.",
+            [],
+            OnLoad: ctx => Effects.RemoveAccessKeys(ctx, "laboratory")),
+
+        new("unlockedTraders", "Unlocked Traders", "2023, 2024", EventTag.Simulated,
+            "The main traders are at loyalty level 4 regardless of your progress. Turning it off returns your real levels. Discounts are not included.",
+            "Os traders principais ficam no nível de lealdade 4, independente do seu progresso. Ao desligar, voltam os seus níveis reais. Descontos não estão incluídos.",
+            [],
+            OnLoad: ctx => Effects.UnlockTraders(ctx, MainTraders)),
+
+        new("downTheRabbitHole", "Down the Rabbit Hole", "Dec 2023", EventTag.Simulated,
+            "All Scav bosses gather at the LexOs car dealership on Streets in every raid. The quests are not included.",
+            "Todos os chefes Scav se reúnem na concessionária LexOs, na Streets, em toda raid. As quests não estão incluídas.",
+            [],
+            OnRaid: ctx =>
+            {
+                if (ctx.Is("tarkovstreets")) Effects.GatherScavBosses(ctx, "tarkovstreets", "ZoneCarShowroom");
+            }),
+
+        new("ammoShortage", "Ammo Shortage", "Nov 2023", EventTag.Ready,
+            "Unlocks the quest The Punisher - Harvest. The flea and trader ammo limits are not included.",
+            "Libera a quest The Punisher - Harvest. As restrições de munição no flea e nos traders não estão incluídas.",
+            ["655e427b64d09b4122018228"]),
+
+        new("fleaPromotion", "Flea Market Promotion", "Dec 2023", EventTag.Simulated,
+            "The flea market opens at any level and its fees drop to a quarter.",
+            "O mercado abre em qualquer nível e as taxas caem para um quarto.",
+            [],
+            OnLoad: ctx =>
+            {
+                var flea = ctx.Globals.Configuration!.RagFair!;
+                flea.MinUserLevel = 1;
+                flea.CommunityTax *= 0.25f;
+                flea.CommunityItemTax *= 0.25f;
+                flea.CommunityRequirementTax *= 0.25f;
+            },
+            Group: "flea"),
+
+        new("instantHideout", "Instant Hideout Building", "2022 to 2024", EventTag.Simulated,
+            "Hideout modules and upgrades are built instantly. Their item requirements stay the same.",
+            "Módulos e melhorias do hideout ficam prontos na hora. Os itens exigidos continuam os mesmos.",
+            [],
+            OnLoad: Effects.InstantHideout),
+
+        new("bossesAndRogues", "Bosses & Rogues Wander", "Jul 2023", EventTag.Simulated,
+            "The Goons are in every Day Factory raid. Unlocks the quests Tourists and Hustle (2023).",
+            "Os Goons aparecem em toda raid na Factory de dia. Libera as quests Tourists e Hustle (2023).",
+            ["649570491bb4d158bc4d0168", "649567f359eab30d1b7c9585"],
+            OnRaid: ctx =>
+            {
+                if (ctx.Is("factory4_day")) ctx.AddFrom("bigmap", "bossKnight", "BotZone", 100);
+            }),
+
+        new("terraGroupTrail", "The TerraGroup Trail", "Jul 2023", EventTag.Simulated,
+            "The Goons leave their maps to guard Sanitar on Shoreline, and both are there in every raid. The original quests are not included.",
+            "Os Goons saem dos seus mapas para proteger o Sanitar na Shoreline, e os dois aparecem em toda raid. As quests originais não estão incluídas.",
+            [],
+            OnRaid: ctx =>
+            {
+                if (ctx.Is("bigmap", "woods", "lighthouse")) ctx.Remove("bossKnight");
+                if (!ctx.Is("shoreline")) return;
+                ctx.SetChance("bossSanitar", 100);
+                ctx.Remove("bossKnight");
+                ctx.AddFrom("bigmap", "bossKnight", "ZoneSanatorium1,ZoneSanatorium2", 100);
+            },
+            Group: "goons"),
+
+        new("hardcoreMode", "Hardcore Mode", "Jul 2023", EventTag.Ready,
+            "Unlocks the quest Cocktail Tasting. The Obdolbos changes are not included.",
+            "Libera a quest Cocktail Tasting. As mudanças no Obdolbos não estão incluídas.",
+            ["649af47d717cb30e7e4b5e26"]),
+
+        new("bloodhounds", "Bloodhounds Reveal", "Jun 2023", EventTag.Simulated,
+            "The Bloodhounds are in every raid on Customs, Woods and Shoreline. Unlocks the quest Bloodhounds.",
+            "Os Bloodhounds aparecem em toda raid na Customs, Woods e Shoreline. Libera a quest Bloodhounds.",
+            ["64764abcd125ab430a14ccb5"],
+            OnRaid: ctx =>
+            {
+                if (ctx.Is("bigmap", "woods")) ctx.SetChance("arenaFighterEvent", 100);
+                if (ctx.Is("shoreline"))
+                    Effects.AddGroup(ctx, "arenaFighterEvent", "3,4", "ZoneStartVillage,ZoneGasStation,ZoneForestGasStation,ZonePowerStation", 100);
+            }),
+
+        new("weaponCaseAirdrops", "Weapon Case Airdrops", "Jun 2023", EventTag.Simulated,
+            "Every airdrop carries two to four sealed weapon cases. Turn on Airdrop Traffic too to get one in every raid.",
+            "Todo airdrop traz de duas a quatro caixas lacradas de armas. Ligue também o Airdrop Traffic para ter um em toda raid.",
+            [],
+            OnLoad: ctx =>
+            {
+                foreach (var (type, loot) in ctx.AirdropConfig.Loot)
+                {
+                    if (type is "radar" or "toiletPaper" || loot.WeaponCrateCount is null) continue;
+                    loot.WeaponCrateCount.Min = Math.Max(loot.WeaponCrateCount.Min, 2);
+                    loot.WeaponCrateCount.Max = Math.Max(loot.WeaponCrateCount.Max, 4);
+                }
+            }),
+
+        new("bandages", "Bandages Event", "Apr 2023", EventTag.Ready,
+            "Unlocks the community quest Important Patient.",
+            "Libera a quest comunitária Important Patient.",
+            ["641dbfd7f43eda9d810d7137"]),
+
+        new("scavOnLabs", "Scav on Labs", "Dec 2022", EventTag.Simulated,
+            "Glukhar and his guards move from Reserve to the Lab and are there in every raid. Scav access to the Lab is not included.",
+            "O Glukhar e seus guardas saem da Reserve para a Lab e aparecem em toda raid. A entrada de Scav na Lab não está incluída.",
+            [],
+            OnRaid: ctx =>
+            {
+                if (ctx.Is("rezervbase")) ctx.Remove("bossGluhar");
+                if (ctx.Is("laboratory")) ctx.AddFrom("rezervbase", "bossGluhar", LabZones, 100);
+            },
+            Group: "glukhar"),
+
+        new("boostedSkills", "Boosted Skill Leveling", "Dec 2022", EventTag.Simulated,
+            "Character and weapon skills level up ten times faster.",
+            "Habilidades do personagem e das armas sobem dez vezes mais rápido.",
+            [],
+            OnLoad: ctx =>
+            {
+                var skills = ctx.Globals.Configuration!.SkillsSettings!;
+                skills.SkillProgressRate *= 10;
+                skills.WeaponSkillProgressRate *= 10;
+            }),
+
+        new("sanitarEvent", "Sanitar Event", "Nov 2022", EventTag.Simulated,
+            "Sanitar and four or five guards are on Customs in every raid.",
+            "O Sanitar e quatro ou cinco guardas aparecem na Customs em toda raid.",
+            [],
+            OnRaid: ctx =>
+            {
+                if (ctx.Is("bigmap")) ctx.AddFrom("shoreline", "bossSanitar", CustomsZones, 100, "4,5");
+            }),
+
+        new("airdropTraffic", "Airdrop Traffic", "Jun 2022, Mar 2026", EventTag.Simulated,
+            "An airdrop comes in every raid on the outdoor maps.",
+            "Um airdrop cai em toda raid nos mapas abertos.",
+            [],
+            OnRaid: ctx =>
+            {
+                foreach (var airdrop in ctx.Location.AirdropParameters ?? [])
+                    airdrop.PlaneAirdropChance = 1;
+            }),
+
+        new("meetingOfBosses", "Meeting of the Bosses", "Jun 2022", EventTag.Simulated,
+            "All Scav bosses are on Customs in every raid.",
+            "Todos os chefes Scav aparecem na Customs em toda raid.",
+            [],
+            OnRaid: ctx =>
+            {
+                if (ctx.Is("bigmap")) Effects.GatherScavBosses(ctx, "bigmap", CustomsZones);
+            }),
+
+        new("heatwave", "Heatwave", "Jul 2021", EventTag.Simulated,
+            "You get thirsty twice as fast in raid.",
+            "Você fica com sede duas vezes mais rápido na raid.",
+            [],
+            OnLoad: ctx => ctx.Globals.Configuration!.Health!.Effects!.Existence!.HydrationDamage *= 2),
+
+        new("bossesGathering", "The Bosses Gathering", "Jun 2021", EventTag.Simulated,
+            "All Scav bosses are on Reserve in every raid.",
+            "Todos os chefes Scav aparecem na Reserve em toda raid.",
+            [],
+            OnRaid: ctx =>
+            {
+                if (ctx.Is("rezervbase")) Effects.GatherScavBosses(ctx, "rezervbase", ReserveZones);
+            }),
+    ];
+
+    public static SeasonalEventDef? SeasonalById(string id) =>
+        Seasonal.FirstOrDefault(s => string.Equals(s.Id, id, StringComparison.OrdinalIgnoreCase));
+
+    public static PastEventDef? Past(string id) =>
+        PastEvents.FirstOrDefault(e => string.Equals(e.Id, id, StringComparison.OrdinalIgnoreCase));
+
+    public static bool IsKnownPast(string id) => Past(id) is not null;
+
+    internal static class Effects
+    {
+        public static void GatherScavBosses(RaidContext ctx, string map, string zones)
+        {
+            foreach (var (boss, home) in ScavBosses)
+                ctx.AddFrom(home, boss, home == map ? null : zones, 100);
+        }
+
+        public static void AddGroup(RaidContext ctx, string role, string escortAmount, string zones, double chance)
+        {
+            if (ctx.Location.BossLocationSpawn?.Any(b => b.BossName == role && b.BossZone == zones) == true)
+            {
+                ctx.SetChance(role, chance);
+                return;
+            }
+            if (ctx.CloneAnySpawn() is not { } spawn) return;
+            spawn.BossName = role;
+            spawn.BossEscortType = role;
+            spawn.BossEscortAmount = escortAmount;
+            spawn.BossZone = zones;
+            spawn.BossChance = chance;
+            spawn.Supports = [];
+            spawn.TriggerId = "";
+            spawn.TriggerName = "";
+            spawn.Time = -1;
+            spawn.IgnoreMaxBots = true;
+            ctx.AddSpawn(spawn);
+        }
+
+        public static void RemoveAccessKeys(LoadContext ctx, params string[] maps)
+        {
+            foreach (var map in maps)
+            {
+                if (ctx.Locations.GetLocation(map)?.Base is not { } location) continue;
+                location.AccessKeys = [];
+                location.AccessKeysPvE = [];
+            }
+        }
+
+        public static void ScaleOverweight(LoadContext ctx, double factor)
+        {
+            var stamina = ctx.Globals.Configuration!.Stamina!;
+            stamina.BaseOverweightLimits = Scale(stamina.BaseOverweightLimits);
+            stamina.WalkOverweightLimits = Scale(stamina.WalkOverweightLimits);
+            stamina.SprintOverweightLimits = Scale(stamina.SprintOverweightLimits);
+            stamina.WalkSpeedOverweightLimits = Scale(stamina.WalkSpeedOverweightLimits);
+
+            Vector3 Scale(Vector3 v) => v with { X = (float)(v.X * factor), Y = (float)(v.Y * factor) };
+        }
+
+        public static void UnlockTraders(LoadContext ctx, IEnumerable<string> traderIds)
+        {
+            foreach (var id in traderIds)
+            {
+                if (ctx.Traders.GetTrader(new MongoId(id))?.Base?.LoyaltyLevels is not { } levels) continue;
+                foreach (var level in levels)
+                {
+                    level.MinLevel = 0;
+                    level.MinSalesSum = 0;
+                    level.MinStanding = 0;
+                }
+            }
+        }
+
+        public static void InstantHideout(LoadContext ctx)
+        {
+            foreach (var area in ctx.Hideout.Areas ?? [])
+            {
+                if (area.Stages is null) continue;
+                foreach (var stage in area.Stages.Values)
+                    stage.ConstructionTime = 0;
+            }
+        }
+
+        public static void EnableMortarStrike(LoadContext ctx, IEnumerable<string> maps)
+        {
+            var configs = ctx.Globals.Configuration?.ArtilleryShelling?.ArtilleryMapsConfigs;
+            if (configs is null)
+            {
+                ctx.Logger.Warning($"{Services.ConfigService.LogPrefix} globals has no ArtilleryShelling section, Mortar Strike skipped");
+                return;
+            }
+            foreach (var map in maps)
+            {
+                if (!configs.TryGetValue(map, out var settings) || settings is null) continue;
+                settings.PlanedShellingOn = true;
+                if (settings.ArtilleryShellingAirDropSettings is { } airdrop) airdrop.UseAirDrop = true;
+            }
+        }
+    }
+}

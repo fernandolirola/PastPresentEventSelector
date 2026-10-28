@@ -1,0 +1,18 @@
+{
+  "language": "en",
+  "view": "grid",
+  "groupByYear": true,
+  "traderMessage": true,
+  "seasonal": {
+    "halloween": "auto",
+    "christmas": "auto",
+    "newyears": "auto",
+    "aprilfools": "auto"
+  },
+  "events": [],
+  "rotation": {
+    "mode": "off",
+    "count": 1
+  },
+  "presets": {}
+}
