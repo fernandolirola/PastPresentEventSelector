@@ -60,7 +60,7 @@ public sealed class TraderMessageService(ConfigService config, SeasonalCalendar 
         var applied = config.Applied;
         var saved = config.Saved;
         var seasonal = EventCatalog.Seasonal
-            .Where(s => applied.ModeOf(s.Id) == SeasonalMode.On || (applied.ModeOf(s.Id) == SeasonalMode.Auto && calendar.InSeason(s.Id, now)))
+            .Where(s => EventSchedule.SeasonalActive(applied, calendar, s.Id, config.StartedAt.Date))
             .Select(s => s.Id).ToList();
         var past = applied.Events.Where(id => EventCatalog.Past(id)?.NeedsRestart == true)
             .Concat(EventSchedule.RaidEvents(saved, now).Where(id => EventCatalog.Past(id)?.NeedsRestart == false));

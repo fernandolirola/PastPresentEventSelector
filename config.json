@@ -14,7 +14,9 @@
     "zombies": false,
     "cultists": true,
     "labInfectedOnly": true,
-    "freeLab": true
+    "freeLab": true,
+    "outbreak2026": false,
+    "loot": true
   },
   "christmas": {
     "santa": true,
@@ -30,7 +32,13 @@
   "events": [],
   "rotation": {
     "mode": "off",
-    "count": 1
+    "count": 1,
+    "raids": 3
   },
+  "seasonalRotation": {
+    "mode": "off",
+    "breakChance": 25
+  },
+  "spawns": {},
   "presets": {}
 }

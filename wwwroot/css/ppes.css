@@ -609,3 +609,43 @@
 }
 
 .ppes-part input { accent-color: var(--spt-accent); width: 15px; height: 15px; }
+
+/* ---------- raid preview editor ---------- */
+.ppes-table-edit .ppes-tr { grid-template-columns: minmax(150px, 1.2fr) 74px minmax(0, 2.4fr) 74px 64px; }
+.ppes-cell { width: 100%; min-width: 0; padding: 3px 6px; font-size: 0.82rem; }
+.ppes-row-actions { display: inline-flex; gap: 2px; justify-content: flex-end; }
+
+.ppes-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--spt-border);
+    background: transparent;
+    color: var(--spt-text-muted);
+    cursor: pointer;
+}
+
+.ppes-icon-btn:hover { color: var(--spt-accent); border-color: var(--spt-accent); }
+.ppes-icon-btn .mud-icon-root { font-size: 1rem; }
+.ppes-tr-removed > span:not(.ppes-row-actions) { opacity: 0.5; text-decoration: line-through; }
+.ppes-tr-removed .ppes-changed { text-decoration: none; }
+.ppes-custom { background: #38bdf8; }
+
+.ppes-add-spawn {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding-top: 6px;
+}
+
+.ppes-add-zones { flex: 1; min-width: 180px; }
+.ppes-map-edited { font-size: 0.8rem !important; margin-left: 4px; vertical-align: -2px; }
+
+@media (max-width: 900px) {
+    /* escort stays hidden on phones, as in the read view; the actions take its place */
+    .ppes-table-edit .ppes-tr { grid-template-columns: minmax(90px, 1fr) 60px minmax(0, 1.4fr) 64px; }
+}

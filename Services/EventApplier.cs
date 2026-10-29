@@ -20,6 +20,7 @@ public sealed class EventApplier(
     LocationTable locations,
     QuestConfig questConfig,
     AirdropConfig airdropConfig,
+    LocationConfig locationConfig,
     TraderMessageService traderMessages,
     SeasonalBossRegistry seasonalBosses,
     SeasonalEventConfig seasonalConfig,
@@ -29,8 +30,9 @@ public sealed class EventApplier(
     public Task OnLoadAsync(CancellationToken cancellationToken)
     {
         config.MarkApplied();
+        EventSchedule.LoadRaids(config);
         var picked = config.Applied.Events;
-        var context = new LoadContext(globals, traders, hideout, locations, questConfig, airdropConfig, logger);
+        var context = new LoadContext(globals, traders, hideout, locations, questConfig, airdropConfig, locationConfig, logger);
         var applied = new List<string>();
 
         foreach (var id in picked)

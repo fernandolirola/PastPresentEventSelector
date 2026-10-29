@@ -14,6 +14,7 @@ public sealed record LoadContext(
     LocationTable Locations,
     QuestConfig QuestConfig,
     AirdropConfig AirdropConfig,
+    LocationConfig LocationConfig,
     ISptLogger<Services.EventApplier> Logger);
 
 /// <summary>
@@ -75,6 +76,14 @@ public sealed class RaidContext(LocationBase location, string mapId, LocationTab
         Location.BossLocationSpawn.Add(spawn);
         return true;
     }
+
+    private static readonly string[] HomeMaps = ["bigmap", "woods", "shoreline", "interchange", "lighthouse", "rezervbase", "tarkovstreets",
+        "factory4_day", "factory4_night", "laboratory", "sandbox", "sandbox_high", "labyrinth"];
+
+    /// <summary>A map whose own spawns have this role, to copy it from with its followers.</summary>
+    public string? HomeOf(string boss) =>
+        HomeMaps.FirstOrDefault(m => locations.GetLocation(m)?.Base?.BossLocationSpawn?
+            .Any(b => string.Equals(b.BossName, boss, StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(b.TriggerId)) == true);
 
     public void AddSpawn(BossLocationSpawn spawn) => Location.BossLocationSpawn?.Add(spawn);
 

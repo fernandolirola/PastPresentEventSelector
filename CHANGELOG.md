@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.4.0
+
+- **Editable raid preview:** press Edit to change the chance, zones and escort of any boss or group on a map, remove one, or add a boss or faction (Cleanup Crew, Smugglers, Pillagers, Gus, Basmach, Black Division, infected and more). Your changes apply after the events, from the next raid, and are marked "yours" with an undo per row and per map.
+- **Halloween 2026:** a new Halloween part, 2026 outbreak, spreads the infected to every map (Customs and Interchange too), puts Infected Tagilla wherever there are infected, removes the karma loss for killing Scavs as a Scav and adds the five Halloween 2026 quests from Skier and Therapist. The Infected Factory and Infected Lab maps are not in SPT, so the quests use the normal Factory and Lab. With WTT-ContentBackport installed, The Best Defense gives the QBZ-191 as in the live event.
+- **Halloween loot:** a new Halloween part puts pumpkins with sweets in drawers, jackets and computers and gives Scavs signal pistols and acid green flares, as in the 2023 to 2025 Halloweens.
+- **Wild Wild Woods** now has its extra loot: half again as much loose loot on Woods and a quarter more in containers.
+- **More rotation choices:** the automatic rotation can now draw every hour, every day or every few raids, besides every week and on weekends.
+- **Seasonal rotation:** one random seasonal event per day, week or month instead of the calendar, with a chance of a break period with none. Events set to Off stay out of the draw. A new period applies after a server restart.
+- **Zombie melee fix:** new small client plugin. With SAIN installed, zombies chased but never hit; the plugin lets them attack again. It does nothing without SAIN.
+
 ## 1.3.0
 
 - **98 event quests recreated** (141 counting route copies), unlocked with their events: The Tarkov Mystery (23, with the Skier or Peacekeeper route), The TerraGroup Trail (19), Shifting Balance (10), Smugglers 2024 and 2026 (8), Tarkov Hospitality (8), Casus belli (7), Down the Rabbit Hole (6), Blackout (5), Arms Race (4), Full Speed Ahead (4), Letters, Staying Light, Wild Wild Woods and The Bosses gathering.

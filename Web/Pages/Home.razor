@@ -8,6 +8,7 @@
 @inject QuestAvailability QuestCheck
 @inject PreviewService Previewer
 @inject ISnackbar Snackbar
+@using System.Globalization
 
 <PageTitle>Past &amp; Present Event Selector</PageTitle>
 
@@ -75,6 +76,37 @@
                        "More than one seasonal event is on. SPT applies them all, but event quests and items only follow the last one in the list. Expect some odd results.")
                 </MudAlert>
             }
+
+            <MudPaper Elevation="0" Class="ppes-panel spt-panel mb-3">
+                <div class="ppes-panel-head">
+                    <MudIcon Icon="@Icons.Material.Filled.Shuffle" Class="ppes-accent" />
+                    <MudText Typo="Typo.h6">@T("Rotação dos sazonais", "Seasonal rotation")</MudText>
+                </div>
+                <MudText Typo="Typo.body2" Class="spt-muted">@T("Em vez do calendário, um evento sazonal sorteado fica ligado em cada período, e às vezes nenhum, para dar uma pausa. Eventos em Desligado ficam fora do sorteio. O SPT só escolhe os sazonais ao iniciar, então um período novo vale depois de reiniciar o servidor.", "Instead of the calendar, one random seasonal event is on each period, and sometimes none for a break. Events set to Off stay out of the draw. SPT only picks seasonal events at startup, so a new period applies after a server restart.")</MudText>
+                <div class="ppes-row">
+                    <span class="ppes-label">@T("Sortear:", "Draw:")</span>
+                    <div class="ppes-segmented" role="radiogroup">
+                        @foreach (var (value, pt, en) in SeasonalRotationModes)
+                        {
+                            <button role="radio" aria-checked="@(working.SeasonalRotation.Mode == value)" class="@(working.SeasonalRotation.Mode == value ? "ppes-on" : "")" @onclick="@(() => working.SeasonalRotation.Mode = value)">@T(pt, en)</button>
+                        }
+                    </div>
+                    @if (working.SeasonalRotation.Mode != SeasonalRotationMode.Off)
+                    {
+                        <span class="ppes-label">@T("Chance de pausa:", "Break chance:")</span>
+                        <input class="ppes-input ppes-number" type="number" min="0" max="90" aria-label="@T("Chance de pausa", "Break chance")"
+                               value="@working.SeasonalRotation.BreakChance" @onchange="@(e => working.SeasonalRotation.BreakChance = Math.Clamp(int.TryParse(e.Value?.ToString(), out var n) ? n : 0, 0, 90))" />
+                        <span class="ppes-label">%</span>
+                    }
+                </div>
+                @if (EventSchedule.SeasonalRotation(working, Today) is { Active: true } seasonalDraw)
+                {
+                    <div class="ppes-rotation">
+                        <span class="ppes-hint">@T($"Período atual, até {FormatDate(seasonalDraw.Until.AddDays(-1))}:", $"This period, until {FormatDate(seasonalDraw.Until.AddDays(-1))}:")</span>
+                        <span class="ppes-pill ppes-pill-on">@(seasonalDraw.Pick is { } pick ? SeasonalName(pick) : T("pausa, nenhum evento", "break, no event"))</span>
+                    </div>
+                }
+            </MudPaper>
 
             <div class="ppes-grid ppes-grid-seasonal">
                 @foreach (var s in EventCatalog.Seasonal)
@@ -151,7 +183,7 @@
                     <MudIcon Icon="@Icons.Material.Filled.Autorenew" Class="ppes-accent" />
                     <MudText Typo="Typo.h6">@T("Rotação automática", "Automatic rotation")</MudText>
                 </div>
-                <MudText Typo="Typo.body2" Class="spt-muted">@T("O servidor sorteia eventos sozinho e liga pra você, toda semana ou só nos fins de semana, como os eventos de fim de semana do jogo. Eles somam com os que você ligou e trocam sozinhos. Só entram no sorteio eventos que valem na próxima raid, então não precisa reiniciar.", "The server draws events by itself and turns them on for you, every week or only on weekends, like the live weekend events. They add to the ones you turned on and change on their own. Only events that apply from the next raid are drawn, so no restart is needed.")</MudText>
+                <MudText Typo="Typo.body2" Class="spt-muted">@T("O servidor sorteia eventos sozinho e liga pra você: a cada hora, dia, semana, só nos fins de semana ou a cada tantas raids. Eles somam com os que você ligou e trocam sozinhos. Só entram no sorteio eventos que valem na próxima raid, então não precisa reiniciar.", "The server draws events by itself and turns them on for you: every hour, day or week, only on weekends, or every few raids. They add to the ones you turned on and change on their own. Only events that apply from the next raid are drawn, so no restart is needed.")</MudText>
                 <div class="ppes-row">
                     <span class="ppes-label">@T("Sortear:", "Draw:")</span>
                     <div class="ppes-segmented" role="radiogroup">
@@ -160,6 +192,13 @@
                             <button role="radio" aria-checked="@(working.Rotation.Mode == value)" class="@(working.Rotation.Mode == value ? "ppes-on" : "")" @onclick="@(() => working.Rotation.Mode = value)">@T(pt, en)</button>
                         }
                     </div>
+                    @if (working.Rotation.Mode == RotationMode.Raids)
+                    {
+                        <span class="ppes-label">@T("A cada", "Every")</span>
+                        <input class="ppes-input ppes-number" type="number" min="1" max="50" aria-label="@T("Raids por sorteio", "Raids per draw")"
+                               value="@working.Rotation.Raids" @onchange="@(e => working.Rotation.Raids = Math.Clamp(int.TryParse(e.Value?.ToString(), out var n) ? n : 1, 1, 50))" />
+                        <span class="ppes-label">raids</span>
+                    }
                     @if (working.Rotation.Mode != RotationMode.Off)
                     {
                         <span class="ppes-label">@T("Quantos:", "How many:")</span>
@@ -173,9 +212,7 @@
                     var rotation = EventSchedule.Rotation(working, Now);
                     <div class="ppes-rotation">
                         <span class="ppes-hint">
-                            @(rotation.Active
-                                ? T($"Sorteados agora, ligados até {FormatDate(rotation.Until.AddDays(-1))}:", $"Drawn now, on until {FormatDate(rotation.Until.AddDays(-1))}:")
-                                : T($"Sorteio do próximo fim de semana ({FormatDate(rotation.From)} e {FormatDate(rotation.From.AddDays(1))}):", $"Next weekend's draw ({FormatDate(rotation.From)} and {FormatDate(rotation.From.AddDays(1))}):"))
+                            @RotationText(rotation)
                         </span>
                         @foreach (var id in rotation.Picks)
                         {
@@ -271,15 +308,17 @@
                 <div>
                     <MudText Typo="Typo.h5">@T("Prévia da raid", "Raid preview")</MudText>
                     <MudText Typo="Typo.body2" Class="spt-muted">
-                        @T("O que a próxima raid teria com a seleção atual, salva ou não, incluindo a rotação. Usa os spawns atuais do servidor, já com o ABPS e os sazonais.",
-                           "What the next raid would have with the current picks, saved or not, rotation included. Uses the server's current spawns, ABPS and seasonal events included.")
+                        @T("O que a próxima raid teria com a seleção atual, salva ou não, incluindo a rotação. Usa os spawns atuais do servidor, já com o ABPS e os sazonais. Em Editar, mude a chance, as zonas e a escolta, tire ou adicione chefes e facções. Suas mudanças valem depois dos eventos, a partir da próxima raid, depois de salvar.",
+                           "What the next raid would have with the current picks, saved or not, rotation included. Uses the server's current spawns, ABPS and seasonal events included. In Edit, change the chance, zones and escort, or remove and add bosses and factions. Your changes apply after the events, from the next raid, once saved.")
                     </MudText>
                 </div>
+                <MudButton Class="ml-auto" Size="Size.Small" Variant="@(editing ? Variant.Filled : Variant.Outlined)" Color="Color.Warning"
+                           StartIcon="@Icons.Material.Filled.Edit" OnClick="@(() => editing = !editing)">@(editing ? T("Concluir", "Done") : T("Editar", "Edit"))</MudButton>
             </div>
             <div class="ppes-maps" role="tablist">
                 @foreach (var m in EventDetails.Maps)
                 {
-                    <button role="tab" aria-selected="@(previewMap == m.Id)" class="@($"{(previewMap == m.Id ? "ppes-on" : "")} {(MapTouched(m.Id) ? "ppes-map-touched" : "")}")" @onclick="@(() => previewMap = m.Id)">@T(m.NamePt, m.NameEn)</button>
+                    <button role="tab" aria-selected="@(previewMap == m.Id)" class="@($"{(previewMap == m.Id ? "ppes-on" : "")} {(MapTouched(m.Id) ? "ppes-map-touched" : "")}")" @onclick="@(() => previewMap = m.Id)">@T(m.NamePt, m.NameEn)@if (working.SpawnsOf(m.Id).Count > 0){<MudIcon Icon="@Icons.Material.Filled.Edit" Class="ppes-map-edited" />}</button>
                 }
             </div>
             @if (Preview is { } preview)
@@ -299,24 +338,84 @@
                             <span class="ppes-badge"><MudIcon Icon="@Icons.Material.Filled.VpnKey" /> @(keycard ? T("Precisa de cartão", "Keycard needed") : T("Sem cartão", "No keycard"))</span>
                         }
                     </div>
-                    @if (preview.Spawns.Count == 0)
+                    @if (preview.Spawns.Count == 0 && preview.Removed.Count == 0)
                     {
                         <span class="ppes-hint">@T("Nenhum chefe ou grupo especial neste mapa.", "No bosses or special groups on this map.")</span>
                     }
                     else
                     {
-                        <div class="ppes-table" role="table">
+                        <div class="@($"ppes-table {(editing ? "ppes-table-edit" : "")}")" role="table">
                             <div class="ppes-tr ppes-th" role="row">
-                                <span>@T("Quem", "Who")</span><span>@T("Chance", "Chance")</span><span>@T("Onde", "Where")</span><span>@T("Escolta", "Escort")</span>
+                                <span>@T("Quem", "Who")</span><span>@T("Chance", "Chance")</span><span>@T("Onde", "Where")</span><span>@T("Escolta", "Escort")</span>@if (editing){<span></span>}
                             </div>
                             @foreach (var s in preview.Spawns)
                             {
                                 <div class="@($"ppes-tr {(s.Changed ? "ppes-tr-changed" : "")}")" role="row">
-                                    <span>@T(s.NamePt, s.NameEn)@(s.Groups > 1 ? $" ×{s.Groups}" : "")@if (s.Changed){<span class="ppes-changed">@T("evento", "event")</span>}</span>
-                                    <span class="@(s.Chance >= 100 ? "ppes-sure" : "")">@($"{s.Chance:0}%")</span>
-                                    <span class="ppes-zones">@(string.IsNullOrEmpty(s.Zones) ? T("por gatilho", "by trigger") : s.Zones)</span>
-                                    <span class="ppes-escort">@EscortText(s)</span>
+                                    <span>@T(s.NamePt, s.NameEn)@(s.Groups > 1 ? $" ×{s.Groups}" : "")@if (s.Custom){<span class="ppes-changed ppes-custom">@T("seu", "yours")</span>}else if (s.Changed){<span class="ppes-changed">@T("evento", "event")</span>}</span>
+                                    @if (editing)
+                                    {
+                                        <input class="ppes-input ppes-cell" type="number" min="0" max="100" step="1" aria-label="@T("Chance", "Chance")" value="@s.Chance.ToString("0.#", CultureInfo.InvariantCulture)"
+                                               @onchange="@(e => SetChance(s.Role, e.Value?.ToString()))" />
+                                        <input class="ppes-input ppes-cell" list="@ZoneListId" aria-label="@T("Zonas", "Zones")" title="@T("Zonas separadas por vírgula", "Comma separated zones")" value="@s.RawZones"
+                                               placeholder="@T("por gatilho", "by trigger")" @onchange="@(e => SetZones(s.Role, e.Value?.ToString()))" />
+                                        <input class="ppes-input ppes-cell" aria-label="@T("Escolta", "Escort")" title="@T("Ex.: 2 ou 1-3", "E.g. 2 or 1-3")" value="@EscortValue(s)"
+                                               @onchange="@(e => SetEscort(s.Role, e.Value?.ToString()))" />
+                                        <span class="ppes-row-actions">
+                                            @if (s.Custom)
+                                            {
+                                                <button class="ppes-icon-btn" title="@T("Desfazer suas mudanças", "Undo your changes")" @onclick="@(() => ResetRole(s.Role))"><MudIcon Icon="@Icons.Material.Filled.Undo" /></button>
+                                            }
+                                            <button class="ppes-icon-btn" title="@T("Tirar deste mapa", "Remove from this map")" @onclick="@(() => RemoveRole(s.Role))"><MudIcon Icon="@Icons.Material.Filled.Close" /></button>
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="@(s.Chance >= 100 ? "ppes-sure" : "")">@($"{s.Chance:0.#}%")</span>
+                                        <span class="ppes-zones">@(string.IsNullOrEmpty(s.Zones) ? T("por gatilho", "by trigger") : s.Zones)</span>
+                                        <span class="ppes-escort">@EscortText(s)</span>
+                                    }
                                 </div>
+                            }
+                            @foreach (var s in preview.Removed)
+                            {
+                                <div class="ppes-tr ppes-tr-removed" role="row">
+                                    <span>@T(s.NamePt, s.NameEn)<span class="ppes-changed ppes-custom">@T("tirado", "removed")</span></span>
+                                    <span>@($"{s.Chance:0.#}%")</span>
+                                    <span class="ppes-zones">@s.Zones</span>
+                                    <span class="ppes-escort">@EscortText(s)</span>
+                                    @if (editing)
+                                    {
+                                        <span class="ppes-row-actions"><button class="ppes-icon-btn" title="@T("Trazer de volta", "Bring back")" @onclick="@(() => ResetRole(s.Role))"><MudIcon Icon="@Icons.Material.Filled.Undo" /></button></span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    @if (editing)
+                    {
+                        <datalist id="@ZoneListId">
+                            @foreach (var z in Previewer.ZonesOf(previewMap))
+                            {
+                                <option value="@z"></option>
+                            }
+                        </datalist>
+                        <div class="ppes-add-spawn">
+                            <span class="ppes-label">@T("Adicionar:", "Add:")</span>
+                            <select class="ppes-input" @bind="addRole" aria-label="@T("Chefe ou facção", "Boss or faction")">
+                                <option value="">@T("Chefe ou facção...", "Boss or faction...")</option>
+                                @foreach (var r in Previewer.AddableRoles().Where(r => preview.Spawns.All(x => !string.Equals(x.Role, r.Role, StringComparison.OrdinalIgnoreCase))))
+                                {
+                                    <option value="@r.Role">@T(r.NamePt, r.NameEn)</option>
+                                }
+                            </select>
+                            <input class="ppes-input ppes-number" type="number" min="1" max="100" aria-label="@T("Chance", "Chance")" @bind="addChance" />
+                            <span class="ppes-label">%</span>
+                            <input class="ppes-input ppes-add-zones" list="@ZoneListId" placeholder="@T("Zonas (vazio: o mapa todo)", "Zones (empty: whole map)")" aria-label="@T("Zonas", "Zones")" @bind="addZones" />
+                            <input class="ppes-input ppes-number" placeholder="@T("Escolta", "Escort")" title="@T("Ex.: 2 ou 1-3", "E.g. 2 or 1-3")" aria-label="@T("Escolta", "Escort")" @bind="addEscort" />
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" Disabled="@string.IsNullOrEmpty(addRole)" OnClick="AddSpawn">@T("Adicionar", "Add")</MudButton>
+                            @if (working.SpawnsOf(previewMap).Count > 0)
+                            {
+                                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Default" Class="ml-auto" OnClick="ResetMap">@T("Desfazer tudo neste mapa", "Undo all on this map")</MudButton>
                             }
                         </div>
                     }
@@ -342,8 +441,19 @@
     private static readonly (string Value, string Pt, string En)[] RotationModes =
     [
         (RotationMode.Off, "Desligada", "Off"),
+        (RotationMode.Hourly, "Por hora", "Hourly"),
+        (RotationMode.Daily, "Diária", "Daily"),
         (RotationMode.Weekly, "Semanal", "Weekly"),
         (RotationMode.Weekend, "Fins de semana", "Weekends"),
+        (RotationMode.Raids, "Por raids", "By raids"),
+    ];
+
+    private static readonly (string Value, string Pt, string En)[] SeasonalRotationModes =
+    [
+        (SeasonalRotationMode.Off, "Desligada", "Off"),
+        (SeasonalRotationMode.Daily, "Diária", "Daily"),
+        (SeasonalRotationMode.Weekly, "Semanal", "Weekly"),
+        (SeasonalRotationMode.Monthly, "Mensal", "Monthly"),
     ];
 
     private static readonly (string Value, string Pt, string En)[] Filters =
@@ -371,6 +481,13 @@
     private string presetName = "";
     private string previewMap = "bigmap";
     private string? previewError;
+    private bool editing;
+    private string addRole = "";
+    private double addChance = 100;
+    private string addZones = "";
+    private string addEscort = "";
+
+    private string ZoneListId => $"ppes-zones-{previewMap}";
     private (string Key, RaidPreview Value)? previewCache;
 
     private bool IsPt => Config.Saved.Language == "pt";
@@ -383,6 +500,9 @@
         || EventCatalog.Seasonal.Any(s => working.ModeOf(s.Id) != Config.Saved.ModeOf(s.Id))
         || working.Rotation.Mode != Config.Saved.Rotation.Mode
         || working.Rotation.Count != Config.Saved.Rotation.Count
+        || working.Rotation.Raids != Config.Saved.Rotation.Raids
+        || !working.SeasonalRotation.SameAs(Config.Saved.SeasonalRotation)
+        || !working.SameSpawns(Config.Saved)
         || working.TraderMessage != Config.Saved.TraderMessage
         || !working.Halloween.SameAs(Config.Saved.Halloween)
         || !working.Christmas.SameAs(Config.Saved.Christmas)
@@ -407,6 +527,12 @@
         new("h.freelab", "Lab sem cartão", "Lab without keycard",
             "Durante o Halloween, entrar na Lab não precisa de cartão.",
             "During Halloween, entering the Lab needs no keycard."),
+        new("h.outbreak", "Surto de 2026", "2026 outbreak",
+            "Halloween 2026: liga os zumbis, infectados em todos os mapas (Customs e Interchange também), Tagilla infectado onde há infectados, sem perda de karma ao matar Scavs como Scav, e as 5 quests de Halloween 2026 (Skier e Therapist). Os mapas Infected Factory e Infected Lab não existem no SPT, então as quests usam a Factory e a Lab normais.",
+            "Halloween 2026: turns the zombies on, infected on every map (Customs and Interchange too), Infected Tagilla wherever there are infected, no karma loss for killing Scavs as a Scav, and the 5 Halloween 2026 quests (Skier and Therapist). The Infected Factory and Infected Lab maps are not in SPT, so the quests use the normal Factory and Lab."),
+        new("h.loot", "Loot de Halloween", "Halloween loot",
+            "Abóboras com doces em gavetas, jaquetas e computadores, e pistolas de sinalização e sinalizadores verde-ácido com os Scavs, como nos Halloweens de 2023 a 2025.",
+            "Pumpkins with sweets in drawers, jackets and computers, and signal pistols and acid green flares on Scavs, as in the 2023 to 2025 Halloweens."),
     ];
 
     private static readonly IReadOnlyList<PartDef> AprilFoolsPartList =
@@ -460,6 +586,8 @@
         "h.cultists" => working.Halloween.Cultists,
         "h.labonly" => working.Halloween.LabInfectedOnly,
         "h.freelab" => working.Halloween.FreeLab,
+        "h.outbreak" => working.Halloween.Outbreak2026,
+        "h.loot" => working.Halloween.Loot,
         "a.winter" => working.AprilFools.Winter,
         "a.santa" => working.AprilFools.Santa,
         "a.ritual" => working.AprilFools.RitualAndCult,
@@ -478,6 +606,8 @@
             case "h.cultists": working.Halloween.Cultists = on; break;
             case "h.labonly": working.Halloween.LabInfectedOnly = on; break;
             case "h.freelab": working.Halloween.FreeLab = on; break;
+            case "h.outbreak": working.Halloween.Outbreak2026 = on; break;
+            case "h.loot": working.Halloween.Loot = on; break;
             case "a.winter": working.AprilFools.Winter = on; break;
             case "a.santa": working.AprilFools.Santa = on; break;
             case "a.ritual": working.AprilFools.RitualAndCult = on; break;
@@ -537,11 +667,12 @@
         get
         {
             var events = EventSchedule.RaidEvents(working, Now).Concat(working.Events.Where(id => id is "mortarStrike" or "freeLabs" or "softcore")).Distinct().ToList();
-            var key = previewMap + "|" + string.Join(",", events);
+            var edits = working.SpawnsOf(previewMap);
+            var key = previewMap + "|" + string.Join(",", events) + "|" + string.Join(";", edits.Select(e => $"{e.Role}:{e.Remove}:{e.Chance}:{e.Zones}:{e.Escort}"));
             if (previewCache is { } cached && cached.Key == key) return cached.Value;
             try
             {
-                var value = Previewer.Preview(previewMap, events);
+                var value = Previewer.Preview(previewMap, events, edits);
                 previewCache = (key, value);
                 previewError = null;
                 return value;
@@ -564,11 +695,19 @@
 
     public void Dispose() => Config.Changed -= OnConfigChanged;
 
-    private bool IsSeasonalActive(PpesConfig config, string id) => config.ModeOf(id) switch
+    // the applied config was picked for the day the server started; anything else is judged for today
+    private bool IsSeasonalActive(PpesConfig config, string id) =>
+        EventSchedule.SeasonalActive(config, Calendar, id, ReferenceEquals(config, Config.Applied) ? Config.StartedAt.Date : Today);
+
+    private string SeasonalName(string id) => EventCatalog.Seasonal.FirstOrDefault(s => s.Id == id) is { } s ? T(s.NamePt, s.NameEn) : id;
+
+    private string RotationText(RotationState rotation) => working.Rotation.Mode switch
     {
-        SeasonalMode.On => true,
-        SeasonalMode.Off => false,
-        _ => Calendar.InSeason(id, Today),
+        RotationMode.Raids => T($"Sorteados agora, trocam em {rotation.RaidsLeft} raid(s):", $"Drawn now, change in {rotation.RaidsLeft} raid(s):"),
+        RotationMode.Hourly => T($"Sorteados agora, até {rotation.Until:HH:mm}:", $"Drawn now, until {rotation.Until:HH:mm}:"),
+        RotationMode.Daily => T("Sorteados para hoje:", "Drawn for today:"),
+        _ when rotation.Active => T($"Sorteados agora, ligados até {FormatDate(rotation.Until.AddDays(-1))}:", $"Drawn now, on until {FormatDate(rotation.Until.AddDays(-1))}:"),
+        _ => T($"Sorteio do próximo fim de semana ({FormatDate(rotation.From)} e {FormatDate(rotation.From.AddDays(1))}):", $"Next weekend's draw ({FormatDate(rotation.From)} and {FormatDate(rotation.From.AddDays(1))}):"),
     };
 
     private void SetMode(string id, string mode) => working.Seasonal[id] = mode;
@@ -822,6 +961,59 @@
         _ => T("Experimental", "Experimental"),
     };
 
+    private SpawnEdit EditOf(string role)
+    {
+        if (!working.Spawns.TryGetValue(previewMap, out var edits)) working.Spawns[previewMap] = edits = [];
+        var edit = edits.FirstOrDefault(e => string.Equals(e.Role, role, StringComparison.OrdinalIgnoreCase));
+        if (edit is null) edits.Add(edit = new SpawnEdit { Role = role });
+        return edit;
+    }
+
+    private void SetChance(string role, string? text)
+    {
+        if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var chance)) EditOf(role).Chance = Math.Clamp(chance, 0, 100);
+    }
+
+    private void SetZones(string role, string? text)
+    {
+        var zones = string.Join(",", (text ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        if (zones.Length > 0) EditOf(role).Zones = zones;
+    }
+
+    private void SetEscort(string role, string? text)
+    {
+        if (SpawnEdits.NormalizeEscort(text) is { } escort) EditOf(role).Escort = escort;
+        else Snackbar.Add(T("Escolta: use um número (2) ou um intervalo (1-3).", "Escort: use a number (2) or a range (1-3)."), Severity.Warning);
+    }
+
+    private void RemoveRole(string role)
+    {
+        var edit = EditOf(role);
+        edit.Remove = true;
+        edit.Chance = null;
+        edit.Zones = null;
+        edit.Escort = null;
+    }
+
+    private void ResetRole(string role) => working.Spawns.GetValueOrDefault(previewMap)?.RemoveAll(e => string.Equals(e.Role, role, StringComparison.OrdinalIgnoreCase));
+
+    private void ResetMap() => working.Spawns.Remove(previewMap);
+
+    private void AddSpawn()
+    {
+        if (string.IsNullOrEmpty(addRole)) return;
+        ResetRole(addRole);
+        var edit = EditOf(addRole);
+        edit.Chance = Math.Clamp(addChance, 1, 100);
+        var zones = string.Join(",", addZones.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        edit.Zones = zones.Length > 0 ? zones : null;
+        edit.Escort = SpawnEdits.NormalizeEscort(addEscort);
+        addRole = addZones = addEscort = "";
+        addChance = 100;
+    }
+
+    private static string EscortValue(PreviewSpawn s) => s.EscortMin == s.EscortMax ? $"{s.EscortMax}" : $"{s.EscortMin}-{s.EscortMax}";
+
     private string EscortText(PreviewSpawn s) =>
         s.EscortMax == 0 ? T("sozinho", "alone") : s.EscortMin == s.EscortMax ? $"{s.EscortMax}" : $"{s.EscortMin} {T("a", "to")} {s.EscortMax}";
 
@@ -844,6 +1036,8 @@
     /// <summary>Auto mode: days left when in season, otherwise days until the next start.</summary>
     private string SeasonalHint(string id, string mode)
     {
+        if (working.SeasonalRotation.Mode != SeasonalRotationMode.Off)
+            return mode == SeasonalMode.Off ? T("Fora da rotação.", "Left out of the rotation.") : T("Na rotação: entra quando for sorteado.", "In the rotation: on when drawn.");
         if (mode != SeasonalMode.Auto) return mode == SeasonalMode.On ? T("Forçado: ligado todo dia.", "Forced: on every day.") : T("Desligado mesmo nas datas.", "Off even during its dates.");
         var windows = Calendar.WindowsOf(id);
         if (windows.Count == 0) return "";

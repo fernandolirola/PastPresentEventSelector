@@ -45,6 +45,9 @@ public static class EventCatalog
 
     public const string RequiresBlackDivision = "blackdiv";
 
+    /// <summary>Event key of the Halloween 2026 quests, which belong to the Halloween card rather than a past event.</summary>
+    public const string Halloween2026 = "halloween2026";
+
     private const string CustomsZones = "ZoneDormitory,ZoneGasStation,ZoneScavBase";
     private const string ReserveZones = "ZoneRailStrorage,ZonePTOR2,ZoneBarrack,ZoneSubStorage";
     private const string LabZones = "BotZoneFloor1,BotZoneFloor2";
@@ -196,7 +199,8 @@ public static class EventCatalog
     public static IReadOnlyList<QuestLink> EventQuests(string eventId, IEnumerable<string> gatedIds)
     {
         var gated = gatedIds.Where(QuestTitles.ContainsKey).Select(id => QuestTitles[id]).ToList();
-        var names = gated.Concat(WikiEventQuests.ByEvent.GetValueOrDefault(eventId) ?? []).Distinct(StringComparer.OrdinalIgnoreCase);
+        var names = gated.Concat(WikiEventQuests.ByEvent.GetValueOrDefault(eventId) ?? [])
+            .Concat(eventId == "halloween" ? Halloween2026Quests : []).Distinct(StringComparer.OrdinalIgnoreCase);
         return names
             .Select(name => new QuestLink(name, WikiBase + Uri.EscapeDataString(name.Replace(' ', '_')), gated.Contains(name, StringComparer.OrdinalIgnoreCase)))
             .ToList();
@@ -205,11 +209,15 @@ public static class EventCatalog
     public static IReadOnlyList<QuestLink> SeasonalQuests(string seasonalId) =>
         EventQuests(seasonalId, SeasonalQuestIds.GetValueOrDefault(seasonalId) ?? []);
 
+    // Halloween 2026 quests recreated by PPES (tools/questgen/events_halloween.py)
+    private static readonly string[] Halloween2026Quests = ["Halloween: Rumors", "Halloween: The Best Defense", "Halloween: Follow-Up Examination",
+        "Halloween: Unexpected Help", "Halloween: Initial Examination"];
+
     public static readonly IReadOnlyList<SeasonalEventDef> Seasonal =
     [
         new("halloween", "Halloween", "Halloween", ["halloween"],
-            "Zombies, cultist bosses, pumpkins, Tagilla with a scythe and the summoning ritual. Halloween quests unlock.",
-            "Zumbis, chefes cultistas, abóboras, Tagilla com foice e o ritual de invocação. Libera as quests de Halloween."),
+            "Zombies, cultist bosses, pumpkins, Tagilla with a scythe and the summoning ritual. Halloween quests unlock. The 2026 outbreak part spreads the infected to every map and adds the five Halloween 2026 quests.",
+            "Zumbis, chefes cultistas, abóboras, Tagilla com foice e o ritual de invocação. Libera as quests de Halloween. A parte Surto de 2026 espalha os infectados por todos os mapas e adiciona as cinco quests de Halloween 2026."),
         new("christmas", "Christmas", "Natal", ["christmas", "christmas January"],
             "Santa on the maps, a decorated hideout, the Khorovod tree event, winter gear and the Christmas quests.",
             "Papai Noel nos mapas, hideout decorado, evento da árvore (Khorovod), roupas de inverno e as quests de Natal."),
@@ -275,10 +283,14 @@ public static class EventCatalog
             }),
 
         new("wildWildWoods", "Wild Wild Woods", "Jun 2026", EventTag.Simulated,
-            "Shturman is in every Woods raid and the Scav cooldown is four times shorter. Unlocks the recreated quest Wild Wild Woods. The barters and extra loot are not included.",
-            "O Shturman aparece em toda raid na Woods e o tempo de espera do Scav fica quatro vezes menor. Libera a quest recriada Wild Wild Woods. As trocas e o loot extra não estão incluídos.",
+            "Shturman is in every Woods raid, the Scav cooldown is four times shorter and Woods has half again as much loose loot and a quarter more in containers. Unlocks the recreated quest Wild Wild Woods. The barters are not included.",
+            "O Shturman aparece em toda raid na Woods, o tempo de espera do Scav fica quatro vezes menor e a Woods tem metade a mais de loot solto e um quarto a mais nos contêineres. Libera a quest recriada Wild Wild Woods. As trocas não estão incluídas.",
             [],
-            OnLoad: ctx => ctx.Globals.Configuration!.SavagePlayCooldown /= 4,
+            OnLoad: ctx =>
+            {
+                ctx.Globals.Configuration!.SavagePlayCooldown /= 4;
+                Effects.ScaleLoot(ctx, "woods", 1.5, 1.25);
+            },
             OnRaid: ctx =>
             {
                 if (ctx.Is("woods")) ctx.SetChance("bossKojaniy", 100);
@@ -697,6 +709,13 @@ public static class EventCatalog
                     return data;
                 });
             }
+        }
+
+        /// <summary>Multiplies SPT's loot multipliers for a map, on top of what the user or other mods set.</summary>
+        public static void ScaleLoot(LoadContext ctx, string map, double loose, double containers)
+        {
+            if (ctx.LocationConfig.LooseLootMultiplier.TryGetValue(map, out var l)) ctx.LocationConfig.LooseLootMultiplier[map] = l * loose;
+            if (ctx.LocationConfig.StaticLootMultiplier.TryGetValue(map, out var s)) ctx.LocationConfig.StaticLootMultiplier[map] = s * containers;
         }
 
         public static void EnsureWeaponCrates(LoadContext ctx, int min, int max)

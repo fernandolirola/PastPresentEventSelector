@@ -354,6 +354,7 @@ _by_key = {}
 _instances = {}   # key -> list of (qid, predecessor qid or None, path)
 quests, texts, meta = {}, {"en": {}, "po": {}}, {"aliases": {}, "events": {}, "requires": {}}
 EXISTING = {}     # stock quest ids usable as predecessors, by key
+SWAPS = []        # (quest key, stock reward tpl, tpl from another mod) swapped in at load when that mod is installed
 
 
 def add(*qs):
@@ -406,10 +407,12 @@ def build_all():
     # rivals: quests in other chains that rule this one out once started
     for q in ALL:
         for rival in q.rivals:
+            # a (key, statuses) rival rules this one out only at those statuses, e.g. (key, [4]) when it is completed
+            rival, status = rival if isinstance(rival, tuple) else (rival, [2, 3, 4])
             for qid, _, _ in _instances[q.key]:
                 for other, _, _ in _instances[rival]:
                     fail = quests[qid]["conditions"]["Fail"]
-                    fail.append(_common(oid(qid, "rival", other), len(fail), "Quest", availableAfter=0, dispersion=0, status=[2, 3, 4], target=other))
+                    fail.append(_common(oid(qid, "rival", other), len(fail), "Quest", availableAfter=0, dispersion=0, status=list(status), target=other))
     for members in groups.values():
         for qid in members:
             for other in members:
@@ -484,6 +487,7 @@ def _emit(q, qid, pred, status, alias_of, n, ipath=""):
 
 
 def write():
+    meta["swaps"] = [{"quest": qid, "from": a, "to": b} for key, a, b in SWAPS for qid, _, _ in _instances[key]]
     out = ROOT / "Quests"
     out.mkdir(exist_ok=True)
     (out / "eventQuests.json").write_text(json.dumps(quests, ensure_ascii=False, indent=1), encoding="utf-8")

@@ -32,6 +32,9 @@ public sealed class ConfigService
     }
 
     public string ModPath { get; }
+
+    /// <summary>When the server started; seasonal events were picked for this date.</summary>
+    public DateTime StartedAt { get; } = DateTimeOffset.Now.DateTime;
     private string ConfigPath => Path.Combine(ModPath, "config.json");
 
     /// <summary>What is on disk now. Raid-time events read this, so they change from the next raid.</summary>
@@ -101,11 +104,39 @@ public sealed class ConfigService
         config.AprilFools ??= new AprilFoolsParts();
         config.Rotation ??= new RotationSettings();
         config.Rotation.Mode = RotationMode.Normalize(config.Rotation.Mode);
-        config.Rotation.Count = Math.Clamp(config.Rotation.Count, 1, EventSchedule.RotationPool.Count());
+        config.Rotation.Count = Math.Clamp(config.Rotation.Count, 1, Math.Max(1, EventSchedule.RotationPool.Count()));
+        config.Rotation.Raids = Math.Clamp(config.Rotation.Raids, 1, 50);
+        config.SeasonalRotation ??= new SeasonalRotationSettings();
+        config.SeasonalRotation.Mode = SeasonalRotationMode.Normalize(config.SeasonalRotation.Mode);
+        config.SeasonalRotation.BreakChance = Math.Clamp(config.SeasonalRotation.BreakChance, 0, 90);
+        config.Spawns = NormalizeSpawns(config.Spawns ?? new());
         config.Presets = (config.Presets ?? new())
             .Where(p => !string.IsNullOrWhiteSpace(p.Key) && p.Value is not null)
             .ToDictionary(p => p.Key.Trim(), p => new PresetData { Seasonal = NormalizeSeasonal(p.Value.Seasonal ?? new()), Events = NormalizeEvents(p.Value.Events ?? []) });
         return config;
+    }
+
+    /// <summary>One edit per role and map, the last one winning; edits that change nothing are dropped.</summary>
+    private static Dictionary<string, List<SpawnEdit>> NormalizeSpawns(Dictionary<string, List<SpawnEdit>> spawns)
+    {
+        var result = new Dictionary<string, List<SpawnEdit>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (map, edits) in spawns)
+        {
+            if (string.IsNullOrWhiteSpace(map) || edits is null) continue;
+            var byRole = new Dictionary<string, SpawnEdit>(StringComparer.OrdinalIgnoreCase);
+            foreach (var e in edits)
+            {
+                if (e is null || string.IsNullOrWhiteSpace(e.Role)) continue;
+                e.Role = e.Role.Trim();
+                e.Chance = e.Chance is { } c ? Math.Clamp(Math.Round(c, 1), 0, 100) : null;
+                e.Zones = string.IsNullOrWhiteSpace(e.Zones) ? null : string.Join(",", e.Zones.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+                e.Escort = SpawnEdits.NormalizeEscort(e.Escort);
+                if (!e.Remove && e.Chance is null && e.Zones is null && e.Escort is null) continue;
+                byRole[e.Role] = e;
+            }
+            if (byRole.Count > 0) result[map.Trim().ToLowerInvariant()] = [.. byRole.Values];
+        }
+        return result;
     }
 
     private static Dictionary<string, string> NormalizeSeasonal(Dictionary<string, string> modes)

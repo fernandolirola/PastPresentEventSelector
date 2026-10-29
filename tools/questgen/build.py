@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, __file__.rsplit("\\", 1)[0].rsplit("/", 1)[0])
 import lib
 import events_quick  # noqa: F401  (each module registers its quests)
-for name in ("events_mystery", "events_factions", "events_lighthouse"):
+for name in ("events_mystery", "events_factions", "events_lighthouse", "events_halloween"):
     try:
         __import__(name)
     except ModuleNotFoundError as e:

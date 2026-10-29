@@ -200,6 +200,13 @@
    "3e077b662bfa0e7716d933f9",
    "0c069cd07b1de7402d66a391",
    "89843e7b3c683b5d33a82020"
+  ],
+  "halloween2026": [
+   "c736f86333db1c901ac91499",
+   "ca4c53ababc42d7e8e329f6f",
+   "a29792ea9bc4faf6443743c9",
+   "4522f9a056378ee7172f3705",
+   "b6758dc59d202bc15b4e9630"
   ]
  },
  "requires": {
@@ -222,5 +229,22 @@
   "2b4871cf2e346bf43d83c5c4": "blackdiv",
   "1145cbbc960f5de957cf0427": "blackdiv",
   "349fc1f8ad64d22bc5ed6847": "blackdiv"
- }
+ },
+ "swaps": [
+  {
+   "quest": "ca4c53ababc42d7e8e329f6f",
+   "from": "5447a9cd4bdc2dbd208b4567",
+   "to": "69f9ebbcaae020b0db02f65d"
+  },
+  {
+   "quest": "ca4c53ababc42d7e8e329f6f",
+   "from": "5aaa5dfee5b5b000140293d3",
+   "to": "69f9ec5a7596e93e340c0a1e"
+  },
+  {
+   "quest": "ca4c53ababc42d7e8e329f6f",
+   "from": "657024e3c5d7d4cb4d07856a",
+   "to": "6a9961d053d704c9d005660e"
+  }
+ ]
 }

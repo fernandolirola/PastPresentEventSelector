@@ -7,6 +7,7 @@ using SPTarkov.Common.Models.Logging;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Common;
+using SPTarkov.Server.Core.Models.Eft.Common;
 using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Enums;
 using SPTarkov.Server.Core.Models.Spt.Config;
@@ -26,6 +27,8 @@ public sealed class EventQuests(
     LocaleTable locales,
     HideoutTable hideout,
     BotTable botTable,
+    GlobalTable globals,
+    ConfigService config,
     QuestConfig questConfig,
     InventoryConfig inventoryConfig,
     JsonUtil json,
@@ -45,7 +48,15 @@ public sealed class EventQuests(
     private static readonly string[] QuestTextKeys = ["name", "description", "successMessageText", "failMessageText", "startedMessageText",
         "acceptPlayerMessage", "declinePlayerMessage", "completePlayerMessage", "changeQuestMessageText", "note"];
 
-    private sealed record Meta(Dictionary<string, string> Aliases, Dictionary<string, List<string>> Events, Dictionary<string, string> Requires);
+    private sealed record Swap(string Quest, string From, string To);
+
+    private sealed record Meta(Dictionary<string, string> Aliases, Dictionary<string, List<string>> Events, Dictionary<string, string> Requires, List<Swap>? Swaps);
+
+    /// <summary>Quests of a seasonal event: SPT shows them while that season is on, like its own Halloween quests.</summary>
+    private static readonly Dictionary<string, SeasonalEventType> SeasonalEvents = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [EventCatalog.Halloween2026] = SeasonalEventType.Halloween,
+    };
 
     public Task OnLoadAsync(CancellationToken cancellationToken)
     {
@@ -55,6 +66,9 @@ public sealed class EventQuests(
             var meta = JsonSerializer.Deserialize<Meta>(Resource("eventQuestMeta.json"), new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
             var skipped = new HashSet<string>();
             questConfig.EventQuests ??= [];
+            var seasonOf = meta.Events.Where(e => SeasonalEvents.ContainsKey(e.Key))
+                .SelectMany(e => e.Value.Select(id => (id, SeasonalEvents[e.Key]))).ToDictionary(x => x.id, x => x.Item2);
+            var outbreak = config.Saved.Halloween.Outbreak2026;
             foreach (var (id, quest) in quests)
             {
                 if (meta.Requires.TryGetValue(id.ToString(), out var need) && !Available(need))
@@ -63,12 +77,17 @@ public sealed class EventQuests(
                     continue;
                 }
                 templates.Quests[id] = quest;
-                // an end date in the past hides the quest until its event is picked
-                questConfig.EventQuests[id] = new EventQuestData { Name = quest.QuestName, Season = SeasonalEventType.None, StartTimestamp = 0, EndTimestamp = 1, Yearly = false };
+                // same entry as SPT's own Halloween quests; with the 2026 part off the end date below hides them instead
+                if (seasonOf.TryGetValue(id.ToString(), out var season) && outbreak)
+                    questConfig.EventQuests[id] = new EventQuestData { Name = quest.QuestName, Season = season, StartTimestamp = 1341615600000, EndTimestamp = 0, Yearly = true };
+                else
+                    // an end date in the past hides the quest until its event is picked
+                    questConfig.EventQuests[id] = new EventQuestData { Name = quest.QuestName, Season = SeasonalEventType.None, StartTimestamp = 0, EndTimestamp = 1, Yearly = false };
             }
             foreach (var (eventId, ids) in meta.Events)
                 EventCatalog.ExtraQuests[eventId] = ids.Where(i => templates.Quests.ContainsKey(i)).ToList();
 
+            SwapRewards(meta.Swaps ?? []);
             AddLocales(json.Deserialize<Dictionary<string, Dictionary<string, string>>>(Resource("eventLocales.json"))!, meta.Aliases);
             UnlockRecipesWith(Walter);
             AddFactionLoot();
@@ -114,6 +133,42 @@ public sealed class EventQuests(
                             data[$"{copy} {k}"] = text;
                 return data;
             });
+        }
+    }
+
+    /// <summary>
+    /// Rewards SPT lacks are given as stand-ins; when a mod that adds the real item is installed (WTT-ContentBackport),
+    /// the stand-in is replaced: a weapon by its preset, anything else by the item, with an ammo box refilled with its own rounds.
+    /// </summary>
+    private void SwapRewards(List<Swap> swaps)
+    {
+        var items = templates.Items;
+        foreach (var swap in swaps)
+        {
+            if (!items.ContainsKey(swap.To) || !templates.Quests.TryGetValue(swap.Quest, out var quest)) continue;
+            foreach (var reward in quest.Rewards?.GetValueOrDefault("Success") ?? [])
+            {
+                if (reward.Items is not { Count: > 0 } list || list[0].Template != swap.From) continue;
+                var preset = globals.ItemPresets?.Values.FirstOrDefault(p => p.Encyclopedia == swap.To);
+                if (preset?.Items is { Count: > 0 } presetItems)
+                {
+                    var root = list[0].Id;
+                    var ids = presetItems.ToDictionary(i => i.Id, i => i.Id == presetItems[0].Id ? root : new MongoId());
+                    reward.Items = presetItems.Select(i => new Item
+                    {
+                        Id = ids[i.Id],
+                        Template = i.Template,
+                        ParentId = i.ParentId is { } parent && ids.TryGetValue(parent, out var p) ? p.ToString() : null,
+                        SlotId = i.Id == presetItems[0].Id ? null : i.SlotId,
+                        Upd = i.Id == presetItems[0].Id ? new Upd { StackObjectsCount = 1 } : null,
+                    }).ToList();
+                    continue;
+                }
+                list[0].Template = swap.To;
+                var rounds = items[swap.To].Properties?.StackSlots?.FirstOrDefault()?.Properties?.Filters?.FirstOrDefault()?.Filter?.FirstOrDefault();
+                foreach (var child in list.Where(i => i.SlotId == "cartridges"))
+                    if (rounds is { } r) child.Template = r;
+            }
         }
     }
 

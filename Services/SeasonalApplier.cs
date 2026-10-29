@@ -5,7 +5,11 @@ using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Extensions;
 using SPTarkov.Server.Core.Models.Enums;
+using SPTarkov.Server.Core.Models.Common;
+using SPTarkov.Server.Core.Models.Eft.Common;
+using SPTarkov.Server.Core.Models.Eft.Common.Tables;
 using SPTarkov.Server.Core.Models.Spt.Config;
+using SPTarkov.Server.Core.Models.Spt.Tables;
 
 namespace PPES.Services;
 
@@ -74,11 +78,21 @@ public sealed class SeasonalApplier(
     SeasonalCalendar calendar,
     SeasonalBossRegistry bossRegistry,
     SeasonalEventConfig seasonalConfig,
+    BotTable botTable,
+    LocationTable locations,
     ISptLogger<SeasonalApplier> logger) : IOnLoad
 {
     private const string NightCult = "halloweennightcult";
     private const string Summon = "halloweensummon";
     private const string Zombies = "halloweenzombies";
+    private const string Pumpkin = "634959225289190e5e773b3b";
+    private const string SignalPistol = "620109578d82e67e7911abf2";
+    private const string AcidFlare = "635267f063651329f75a4ee8";
+    private static readonly string[] HalloweenLootMaps = ["bigmap", "woods", "shoreline", "interchange", "lighthouse", "rezervbase", "tarkovstreets",
+        "factory4_day", "factory4_night", "laboratory", "sandbox", "sandbox_high"];
+    // drawers, jackets and PC blocks
+    private static readonly HashSet<string> SmallContainers = ["5675838d4bdc2d95058b456e", "578f87b7245977356274f2cd", "578f8778245977358849a9b5",
+        "5914944186f774189e5e76c2", "5937ef2b86f77408a47244b3", "59139c2186f77411564f8e42"];
 
     public Task OnLoadAsync(CancellationToken cancellationToken)
     {
@@ -98,7 +112,7 @@ public sealed class SeasonalApplier(
                 continue;
             }
 
-            var mode = settings.ModeOf(def.Id);
+            var mode = EventSchedule.SeasonalModeOn(settings, def.Id, today);
             switch (mode)
             {
                 case SeasonalMode.Off:
@@ -125,6 +139,8 @@ public sealed class SeasonalApplier(
         var winterOn = active.Contains("christmas") || active.Contains("newyears");
 
         ApplyHalloweenParts(events, halloween);
+        if (halloweenOn && halloween.Outbreak2026) ApplyOutbreak2026(events);
+        if (halloweenOn && halloween.Loot) AddHalloweenLoot();
         ApplyChristmasParts(events, christmas);
         ApplyAprilFoolsParts(events, aprilFools);
 
@@ -140,11 +156,11 @@ public sealed class SeasonalApplier(
             santa,
             aprilOn && !santa,
             winterOn && !christmas.Khorovod,
-            halloweenOn && halloween.Zombies && halloween.LabInfectedOnly ? ZombieOnlyMaps(events) : [],
+            halloweenOn && halloween.ZombiesOn && halloween.LabInfectedOnly ? ZombieOnlyMaps(events) : [],
             aprilOn && !summonWanted);
 
         if (halloweenOn)
-            summary.Add($"Halloween parts: ritual {OnOff(halloween.Ritual)}, zombies {OnOff(halloween.Zombies)}, cultists {OnOff(halloween.Cultists)}, Lab infected only {OnOff(halloween.LabInfectedOnly)}, free Lab {OnOff(halloween.FreeLab)}");
+            summary.Add($"Halloween parts: ritual {OnOff(halloween.Ritual)}, zombies {OnOff(halloween.ZombiesOn)}, cultists {OnOff(halloween.Cultists)}, Lab infected only {OnOff(halloween.LabInfectedOnly)}, free Lab {OnOff(halloween.FreeLab)}, 2026 outbreak {OnOff(halloween.Outbreak2026)}, loot {OnOff(halloween.Loot)}");
         if (winterOn)
             summary.Add($"Christmas parts: Santa {OnOff(christmas.Santa)}, hideout {OnOff(christmas.Hideout)}, Khorovod {OnOff(christmas.Khorovod)}, winter clothes {OnOff(christmas.WinterClothes)}");
         if (aprilOn)
@@ -177,10 +193,70 @@ public sealed class SeasonalApplier(
             s.EnableSummoning = parts.Ritual;
             if (!parts.FreeLab) s.RemoveEntryRequirement = [];
             if (s.ZombieSettings is not { } zombies) continue;
-            zombies.Enabled = parts.Zombies;
+            zombies.Enabled = parts.ZombiesOn;
             // without ABPS this stops SPT from clearing the Lab; with ABPS the raid patch does the clearing when asked
             if (!parts.LabInfectedOnly) zombies.DisableBosses = [];
         }
+    }
+
+    /// <summary>
+    /// Halloween 2026: infected on every map (SPT leaves Customs and Interchange at zero infection), Infected Tagilla
+    /// wherever there are infected, and no karma loss for player Scavs killing Scavs.
+    /// </summary>
+    private void ApplyOutbreak2026(List<SeasonalEvent> events)
+    {
+        foreach (var e in OfType(events, SeasonalEventType.Halloween))
+        {
+            if (e.Settings!.ZombieSettings?.MapInfectionAmount is not { } infection) continue;
+            foreach (var map in infection.Keys.ToList())
+                if (infection[map] <= 0) infection[map] = 40;
+        }
+        if (seasonalConfig.EventBossSpawns.TryGetValue(Zombies, out var byMap))
+            foreach (var spawns in byMap.Values)
+                foreach (var tagilla in spawns.Where(b => b.BossName == "infectedTagilla" && (b.BossChance ?? 0) <= 0))
+                    tagilla.BossChance = 12;
+        foreach (var (name, type) in botTable.Types)
+        {
+            if (name is not ("assault" or "marksman" or "cursedassault" or "assaultgroup" or "crazyassaultevent") || type?.BotExperience is not { } experience) continue;
+            // the karma loss is a negative standing for each kill, per difficulty
+            foreach (var key in experience.StandingForKill?.Keys.ToList() ?? [])
+                if (experience.StandingForKill![key] < 0) experience.StandingForKill[key] = 0;
+        }
+    }
+
+    private void AddHalloweenLoot()
+    {
+        // pumpkins with sweets in small containers on every map
+        foreach (var map in HalloweenLootMaps)
+        {
+            locations.GetLocation(map)?.StaticLoot?.AddTransformer(data =>
+            {
+                if (data is null) return data;
+                foreach (var (container, details) in data)
+                {
+                    if (!SmallContainers.Contains(container.ToString()) || details.ItemDistribution is not { } dist || dist.Any(d => d.Tpl == Pumpkin)) continue;
+                    var sum = dist.Sum(d => d.RelativeProbability ?? 0);
+                    details.ItemDistribution = dist.Append(new ItemDistribution { Tpl = Pumpkin, RelativeProbability = (float)Math.Max(1, Math.Round(sum * 0.03 / 0.97)) }).ToList();
+                }
+                return data;
+            });
+        }
+        // signal pistols and acid green flares on Scavs
+        if (botTable.Types.TryGetValue("assault", out var scav) && scav?.BotInventory.Items is { } loot)
+        {
+            foreach (var pool in new[] { loot.Pockets, loot.TacticalVest, loot.Backpack })
+            {
+                if (pool is null) continue;
+                AddShare(pool, SignalPistol, 0.02);
+                AddShare(pool, AcidFlare, 0.04);
+            }
+        }
+    }
+
+    private static void AddShare(Dictionary<MongoId, double> pool, string tpl, double share)
+    {
+        var others = pool.Where(p => p.Key != tpl).Sum(p => p.Value);
+        pool[tpl] = Math.Max(1, Math.Round(others * share / (1 - share)));
     }
 
     private static void ApplyChristmasParts(List<SeasonalEvent> events, ChristmasParts parts)
@@ -213,7 +289,7 @@ public sealed class SeasonalApplier(
         var groups = new List<SeasonalBossGroup>();
         if (summonWanted) groups.Add(new(Summon, null));
         if (cultWanted) groups.Add(new(NightCult, null));
-        if (halloweenOn && halloween.Zombies && ZombieMaps(events, SeasonalEventType.Halloween) is { } maps) groups.Add(new(Zombies, maps));
+        if (halloweenOn && halloween.ZombiesOn && ZombieMaps(events, SeasonalEventType.Halloween) is { } maps) groups.Add(new(Zombies, maps));
         return groups;
     }
 
