@@ -2,11 +2,14 @@
 
 ## 1.3.0
 
-- Smugglers quests recreated. Smugglers (2024) unlocks That’s a Great Plan, Walter, Chop the Thieving Hand and Shell Game, with the original texts in every language and the locked case crafts. Smugglers (2026) unlocks Bulldogs Under The Rug, Accept Delivery, Thirty Pieces of Silver, Restocking Supplies and Root of All Evil, with new texts in English and Portuguese.
-- Smugglers always carry a backpack and often have locked cases, case keys and contraband in it. Opened cases can hold Skier's contraband.
-- Smugglers (2026) airdrops carry one or two sealed weapon cases.
-- Bulldogs Under The Rug needs level 15 instead of the Fishing Gear quest. Its letter objective, an item that is not in the game, is replaced by handing over a contraband box.
-- Quests accepted during an event stay in your profile after the event ends.
+- **98 event quests recreated** (141 counting route copies), unlocked with their events: The Tarkov Mystery (23, with the Skier or Peacekeeper route), The TerraGroup Trail (19), Shifting Balance (10), Smugglers 2024 and 2026 (8), Tarkov Hospitality (8), Casus belli (7), Down the Rabbit Hole (6), Blackout (5), Arms Race (4), Full Speed Ahead (4), Letters, Staying Light, Wild Wild Woods and The Bosses gathering.
+- Quests whose texts are still in the game use them in every language, including 106 original objective texts. The others have new texts in English and Portuguese.
+- Objectives use only zones and items that exist in the game. Where an original spot or item is gone, a nearby zone or an existing item takes its place, and the objective text says what to do.
+- New bosses for Arms Race: the arms dealers Gus and Basmach, with Kolontay's guards, on Streets.
+- Smugglers always carry a backpack, often with locked cases, case keys and contraband. Opened cases can hold Skier's contraband. Smugglers (2026) airdrops carry sealed weapon cases.
+- Pillagers often wear painted CQCM masks. Encrypted flash drives turn up in drawers, jackets and PCs during The Tarkov Mystery.
+- Quests that need a faction or mod (MoreBotsAPI factions, Black Division) are only added when it is there. Quests accepted during an event stay in your profile after the event ends.
+- The client prepatcher was updated for Gus and Basmach; every player needs the new one.
 
 ## 1.2.0
 

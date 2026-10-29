@@ -22,11 +22,15 @@ public static class FactionTypesPatch
         Register(assembly, 731001, "ppesCleanupCrew", "PpesCleanupCrew");
         Register(assembly, 731002, "ppesSmuggler", "PpesSmuggler");
         Register(assembly, 731003, "ppesPillager", "PpesPillager");
+        Register(assembly, 731004, "ppesGus", "PpesGus");
+        Register(assembly, 731005, "ppesBasmach", "PpesBasmach");
 
         // each faction groups only with its own members
         CustomWildSpawnTypeManager.AddSuitableGroup(new List<int> { 731001 });
         CustomWildSpawnTypeManager.AddSuitableGroup(new List<int> { 731002 });
         CustomWildSpawnTypeManager.AddSuitableGroup(new List<int> { 731003 });
+        CustomWildSpawnTypeManager.AddSuitableGroup(new List<int> { 731004 });
+        CustomWildSpawnTypeManager.AddSuitableGroup(new List<int> { 731005 });
     }
 
     private static void Register(AssemblyDefinition assembly, int id, string name, string scavRole)

@@ -20,6 +20,8 @@ public static class FactionCatalog
     public const string CleanupCrew = "ppesCleanupCrew";
     public const string Smuggler = "ppesSmuggler";
     public const string Pillager = "ppesPillager";
+    public const string Gus = "ppesGus";
+    public const string Basmach = "ppesBasmach";
 
     public static readonly IReadOnlyList<FactionDef> All =
     [
@@ -29,6 +31,11 @@ public static class FactionCatalog
             "Smugglers", "Contrabandistas", "Armed smugglers moving goods across the region."),
         new(731003, Pillager, "PpesPillager", "ppes_pillagers", ["pmcbot"],
             "Pillagers", "Saqueadores", "Well-armed raiders looting the locations."),
+        // the two arms dealers of the 2024 Arms Race event, each with Kolontay's guards
+        new(731004, Gus, "PpesGus", "ppes_gus", ["followerkolontaysecurity", "pmcbot"],
+            "Gus", "Gus", "An arms dealer selling Western weapons on Streets."),
+        new(731005, Basmach, "PpesBasmach", "ppes_basmach", ["followerkolontaysecurity", "pmcbot"],
+            "Basmach", "Basmach", "An arms dealer selling Russian weapons on Streets."),
     ];
 
     private static readonly HashSet<string> Ready = new(StringComparer.OrdinalIgnoreCase);

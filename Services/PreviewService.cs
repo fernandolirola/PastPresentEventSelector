@@ -58,6 +58,8 @@ public sealed class PreviewService(LocationTable locations, ICloner cloner, Seas
         ["ppesCleanupCrew"] = ("Cleanup Crew", "Cleanup Crew"),
         ["ppesSmuggler"] = ("Smugglers", "Contrabandistas"),
         ["ppesPillager"] = ("Pillagers", "Saqueadores"),
+        ["ppesGus"] = ("Gus", "Gus"),
+        ["ppesBasmach"] = ("Basmach", "Basmach"),
         ["bossWedge"] = ("Wedge", "Wedge"),
         ["blackDivAssault"] = ("Black Division", "Black Division"),
     };

@@ -1,5 +1,4 @@
 using PPES.Factions;
-using PPES.Quests;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common;
 
@@ -27,7 +26,7 @@ public sealed record PastEventDef(
     EventTag Tag,
     string DescEn,
     string DescPt,
-    string[] Quests,
+    string[] QuestIds,
     Action<LoadContext>? OnLoad = null,
     Action<RaidContext>? OnRaid = null,
     string? Group = null,
@@ -35,10 +34,15 @@ public sealed record PastEventDef(
 {
     /// <summary>Load-time edits and quest unlocks only take effect on server start; raid edits apply from the next raid.</summary>
     public bool NeedsRestart => OnLoad is not null || Quests.Length > 0;
+
+    /// <summary>The event's quests: its own list plus the recreated ones EventQuests loaded for it.</summary>
+    public string[] Quests => EventCatalog.ExtraQuests.TryGetValue(Id, out var extra) ? [.. QuestIds, .. extra] : QuestIds;
 }
 
 public static class EventCatalog
 {
+    internal static readonly Dictionary<string, List<string>> ExtraQuests = new(StringComparer.OrdinalIgnoreCase);
+
     public const string RequiresBlackDivision = "blackdiv";
 
     private const string CustomsZones = "ZoneDormitory,ZoneGasStation,ZoneScavBase";
@@ -220,8 +224,8 @@ public static class EventCatalog
     public static readonly IReadOnlyList<PastEventDef> PastEvents =
     [
         new("shiftingBalance", "Shifting Balance", "Sep 2026", EventTag.Simulated,
-            "Glukhar moves from Reserve to the water treatment plant on Lighthouse and is there in every raid. The event quests are not included.",
-            "O Glukhar sai da Reserve para a estação de tratamento de água da Lighthouse e aparece em toda raid. As quests do evento não estão incluídas.",
+            "Glukhar moves from Reserve to the water treatment plant on Lighthouse and is there in every raid. Unlocks the recreated quest chain Fog of War.",
+            "O Glukhar sai da Reserve para a estação de tratamento de água da Lighthouse e aparece em toda raid. Libera a cadeia de quests recriada Fog of War.",
             [],
             OnRaid: ctx =>
             {
@@ -245,8 +249,8 @@ public static class EventCatalog
             }),
 
         new("blackout", "Blackout", "Jul 2026", EventTag.Simulated,
-            "Wedge and his Black Division men are in every Lab raid, with another Black Division team at the gates. The darkness, the new extracts, the keypad codes and the quests are not included. Needs the Black Division mod.",
-            "O Wedge e os homens da Black Division aparecem em toda raid na Lab, com outro time da Black Division nos portões. O apagão, as novas saídas, os códigos dos teclados e as quests não estão incluídos. Precisa do mod Black Division.",
+            "Wedge and his Black Division men are in every Lab raid, with another Black Division team at the gates. The darkness, the new extracts and the keypad codes are not included. Unlocks the recreated quest chain Wrench and Waterboarding. Needs the Black Division mod.",
+            "O Wedge e os homens da Black Division aparecem em toda raid na Lab, com outro time da Black Division nos portões. O apagão, as novas saídas e os códigos dos teclados não estão incluídos. Libera a cadeia de quests recriada Wrench and Waterboarding. Precisa do mod Black Division.",
             [],
             OnRaid: ctx =>
             {
@@ -271,8 +275,8 @@ public static class EventCatalog
             }),
 
         new("wildWildWoods", "Wild Wild Woods", "Jun 2026", EventTag.Simulated,
-            "Shturman is in every Woods raid and the Scav cooldown is four times shorter. The quests, barters and extra loot are not included.",
-            "O Shturman aparece em toda raid na Woods e o tempo de espera do Scav fica quatro vezes menor. As quests, trocas e o loot extra não estão incluídos.",
+            "Shturman is in every Woods raid and the Scav cooldown is four times shorter. Unlocks the recreated quest Wild Wild Woods. The barters and extra loot are not included.",
+            "O Shturman aparece em toda raid na Woods e o tempo de espera do Scav fica quatro vezes menor. Libera a quest recriada Wild Wild Woods. As trocas e o loot extra não estão incluídos.",
             [],
             OnLoad: ctx => ctx.Globals.Configuration!.SavagePlayCooldown /= 4,
             OnRaid: ctx =>
@@ -281,8 +285,8 @@ public static class EventCatalog
             }),
 
         new("tarkovHospitality", "Tarkov Hospitality", "Jun 2026", EventTag.Simulated,
-            "Reshala, Sanitar and Shturman are in every raid on their maps, the Goons stay away, as in the PvE version, and Ref's Cleanup Crew holds the Customs dorms, the Shoreline smugglers' base and the Woods village. In the live event the crew ignored PMCs; here they fight everyone. The quests are not included.",
-            "Reshala, Sanitar e Shturman aparecem em toda raid nos seus mapas, os Goons somem, como na versão PvE, e a Cleanup Crew do Ref ocupa os dormitórios da Customs, a base dos contrabandistas da Shoreline e a vila da Woods. No evento original eles ignoravam PMCs; aqui eles atacam todo mundo. As quests não estão incluídas.",
+            "Reshala, Sanitar and Shturman are in every raid on their maps, the Goons stay away, as in the PvE version, and Ref's Cleanup Crew holds the Customs dorms, the Shoreline smugglers' base and the Woods village. In the live event the crew ignored PMCs; here they fight everyone. Unlocks the recreated quest chain Guardian of Nature.",
+            "Reshala, Sanitar e Shturman aparecem em toda raid nos seus mapas, os Goons somem, como na versão PvE, e a Cleanup Crew do Ref ocupa os dormitórios da Customs, a base dos contrabandistas da Shoreline e a vila da Woods. No evento original eles ignoravam PMCs; aqui eles atacam todo mundo. Libera a cadeia de quests recriada Guardian of Nature.",
             [],
             OnRaid: ctx =>
             {
@@ -306,8 +310,8 @@ public static class EventCatalog
             Group: "goons"),
 
         new("fullSpeedAhead", "Full Speed Ahead", "May 2026", EventTag.Simulated,
-            "Rogues patrol Shoreline and Reserve, Glukhar is in every Reserve raid and the Goons only roam Shoreline, from the gas station to the power station. The quests are not included.",
-            "Rogues patrulham a Shoreline e a Reserve, o Glukhar aparece em toda raid na Reserve e os Goons só andam pela Shoreline, do posto de gasolina à hidrelétrica. As quests não estão incluídas.",
+            "Rogues patrol Shoreline and Reserve, Glukhar is in every Reserve raid and the Goons only roam Shoreline, from the gas station to the power station. Unlocks the recreated quest chain No Smoke Without Fire.",
+            "Rogues patrulham a Shoreline e a Reserve, o Glukhar aparece em toda raid na Reserve e os Goons só andam pela Shoreline, do posto de gasolina à hidrelétrica. Libera a cadeia de quests recriada No Smoke Without Fire.",
             [],
             OnRaid: ctx =>
             {
@@ -353,8 +357,8 @@ public static class EventCatalog
             Group: "glukhar"),
 
         new("casusBelli", "Casus belli", "Apr 2026", EventTag.Simulated,
-            "Pillagers, a new enemy faction, roam Customs, Interchange, Lighthouse, Shoreline and Woods in groups of 3 or 4. The quests are not included.",
-            "Os Pillagers, uma facção inimiga nova, andam em grupos de 3 ou 4 pela Customs, Interchange, Lighthouse, Shoreline e Woods. As quests não estão incluídas.",
+            "Pillagers, a new enemy faction, roam Customs, Interchange, Lighthouse, Shoreline and Woods in groups of 3 or 4. Unlocks the recreated quest chains Casus belli (Ref) and Short on Hands (Skier), and Pillagers often wear painted CQCM masks.",
+            "Os Pillagers, uma facção inimiga nova, andam em grupos de 3 ou 4 pela Customs, Interchange, Lighthouse, Shoreline e Woods. Libera as cadeias de quests recriadas Casus belli (Ref) e Short on Hands (Skier), e os Pillagers costumam usar máscaras CQCM pintadas.",
             [],
             OnRaid: ctx =>
             {
@@ -364,7 +368,7 @@ public static class EventCatalog
         new("smugglers2026", "Smugglers (2026)", "Mar 2026", EventTag.Simulated,
             "Smugglers come back in groups of 3 or 4 on Customs, Woods, Shoreline, Interchange, Lighthouse, Streets and Ground Zero 21+, every Scav boss is on Reserve and airdrops carry sealed weapon cases. Unlocks the quest chain Bulldogs Under The Rug (recreated, it needs MoreBotsAPI). The flare-called drops are not included.",
             "Os Smugglers voltam em grupos de 3 ou 4 na Customs, Woods, Shoreline, Interchange, Lighthouse, Streets e Ground Zero 21+, todo chefe Scav aparece na Reserve e os airdrops trazem caixas lacradas de armas. Libera a cadeia de quests Bulldogs Under The Rug (recriada, precisa do MoreBotsAPI). Os airdrops chamados com sinalizador não estão incluídos.",
-            SmugglerQuests.Quests2026,
+            [],
             OnLoad: ctx => Effects.EnsureWeaponCrates(ctx, 1, 2),
             OnRaid: ctx =>
             {
@@ -386,8 +390,8 @@ public static class EventCatalog
             }),
 
         new("softcore", "Softcore", "Oct 2025", EventTag.Simulated,
-            "The Lab and the Labyrinth need no keycard and you can carry 50% more before being overweight.",
-            "A Lab e o Labirinto não pedem cartão e você carrega 50% a mais antes de ficar com sobrepeso.",
+            "The Lab and the Labyrinth need no keycard and you can carry 50% more before being overweight. Unlocks the recreated quest Staying Light.",
+            "A Lab e o Labirinto não pedem cartão e você carrega 50% a mais antes de ficar com sobrepeso. Libera a quest recriada Staying Light.",
             [],
             OnLoad: ctx =>
             {
@@ -412,7 +416,7 @@ public static class EventCatalog
         new("smugglers2024", "Smugglers (2024)", "Dec 2024", EventTag.Simulated,
             "Smugglers, a new enemy faction, show up in groups of 3 on every map except Ground Zero for low levels and the Lab, carrying locked cases, case keys and contraband. Unlocks the quest chain That’s a Great Plan, Walter (recreated, it needs MoreBotsAPI).",
             "Os Smugglers, uma facção inimiga nova, aparecem em grupos de 3 em todo mapa, menos o Ground Zero de nível baixo e a Lab, levando maletas trancadas, chaves de maleta e contrabando. Libera a cadeia de quests That’s a Great Plan, Walter (recriada, precisa do MoreBotsAPI).",
-            SmugglerQuests.Quests2024,
+            [],
             OnRaid: ctx =>
             {
                 if (ctx.Is(Smugglers2024Maps)) Effects.AddFactionGroup(ctx, FactionCatalog.Smuggler, "2");
@@ -438,9 +442,16 @@ public static class EventCatalog
             ["66a74c628410476dd65543be"]),
 
         new("armsRace", "Arms Race", "Jul 2024", EventTag.Ready,
-            "Unlocks the quest Import Control.",
-            "Libera a quest Import Control.",
-            ["668bcccc167d507eb01a268b"]),
+            "Unlocks the quest Import Control and its recreated follow-ups. The arms dealers Gus and Basmach are on Streets in every raid.",
+            "Libera a quest Import Control e as continuações recriadas. Os traficantes de armas Gus e Basmach aparecem em toda raid na Streets.",
+            ["668bcccc167d507eb01a268b"],
+            OnRaid: ctx =>
+            {
+                if (!ctx.Is("tarkovstreets")) return;
+                foreach (var dealer in new[] { FactionCatalog.Gus, FactionCatalog.Basmach })
+                    if (Effects.AddGroup(ctx, dealer, "2", FactionZones["tarkovstreets"], 100))
+                        ctx.Location.BossLocationSpawn!.Last().BossEscortType = "followerKolontaySecurity";
+            }),
 
         new("keyToSalvation", "A Key to Salvation", "Jun 2024", EventTag.Ready,
             "Unlocks the quest A Key to Salvation.",
@@ -460,9 +471,10 @@ public static class EventCatalog
             }),
 
         new("tarkovMystery", "The Tarkov Mystery", "May 2024", EventTag.Simulated,
-            "Peacekeeper's troops patrol Shoreline and Skier's troops patrol Customs in every raid. Unlocks the quest The Tarkov Mystery.",
-            "Tropas do Peacekeeper na Shoreline e do Skier na Customs em toda raid. Libera a quest The Tarkov Mystery.",
+            "Peacekeeper's troops patrol Shoreline and Skier's troops patrol Customs in every raid. Unlocks the quest The Tarkov Mystery and its recreated follow-up chain, with a Skier or Peacekeeper route, and encrypted flash drives turn up in drawers, jackets and computers.",
+            "Tropas do Peacekeeper na Shoreline e do Skier na Customs em toda raid. Libera a quest The Tarkov Mystery e a continuação recriada, com uma rota do Skier ou do Peacekeeper, e pendrives criptografados aparecem em gavetas, jaquetas e computadores.",
             ["6603fe74e773dcf3b0099f88"],
+            OnLoad: ctx => Effects.AddStaticLoot(ctx, "660bbc47c38b837877075e47", 2),
             OnRaid: ctx =>
             {
                 if (ctx.Is("shoreline")) ctx.SetChance("peacemaker", 100);
@@ -494,8 +506,8 @@ public static class EventCatalog
             OnLoad: ctx => Effects.UnlockTraders(ctx, MainTraders)),
 
         new("downTheRabbitHole", "Down the Rabbit Hole", "Dec 2023", EventTag.Simulated,
-            "All Scav bosses gather at the LexOs car dealership on Streets in every raid. The quests are not included.",
-            "Todos os chefes Scav se reúnem na concessionária LexOs, na Streets, em toda raid. As quests não estão incluídas.",
+            "All Scav bosses gather at the LexOs car dealership on Streets in every raid. Unlocks the recreated quest chain Down the Rabbit Hole.",
+            "Todos os chefes Scav se reúnem na concessionária LexOs, na Streets, em toda raid. Libera a cadeia de quests recriada Down the Rabbit Hole.",
             [],
             OnRaid: ctx =>
             {
@@ -537,8 +549,8 @@ public static class EventCatalog
             }),
 
         new("terraGroupTrail", "The TerraGroup Trail", "Jul 2023", EventTag.Simulated,
-            "The Goons leave their maps to guard Sanitar on Shoreline, and both are there in every raid. The original quests are not included.",
-            "Os Goons saem dos seus mapas para proteger o Sanitar na Shoreline, e os dois aparecem em toda raid. As quests originais não estão incluídas.",
+            "The Goons leave their maps to guard Sanitar on Shoreline, and both are there in every raid. Unlocks the recreated quest chain The TerraGroup Trail.",
+            "Os Goons saem dos seus mapas para proteger o Sanitar na Shoreline, e os dois aparecem em toda raid. Libera a cadeia de quests recriada The TerraGroup Trail.",
             [],
             OnRaid: ctx =>
             {
@@ -600,8 +612,8 @@ public static class EventCatalog
             }),
 
         new("sanitarEvent", "Sanitar Event", "Nov 2022", EventTag.Simulated,
-            "Sanitar and four or five guards are on Customs in every raid.",
-            "O Sanitar e quatro ou cinco guardas aparecem na Customs em toda raid.",
+            "Sanitar and four or five guards are on Customs in every raid. Unlocks the quest Letters.",
+            "O Sanitar e quatro ou cinco guardas aparecem na Customs em toda raid. Libera a quest Letters.",
             [],
             OnRaid: ctx =>
             {
@@ -634,8 +646,8 @@ public static class EventCatalog
             OnLoad: ctx => ctx.Globals.Configuration!.Health!.Effects!.Existence!.HydrationDamage *= 2),
 
         new("bossesGathering", "The Bosses Gathering", "Jun 2021", EventTag.Simulated,
-            "All Scav bosses are on Reserve in every raid.",
-            "Todos os chefes Scav aparecem na Reserve em toda raid.",
+            "All Scav bosses are on Reserve in every raid. Unlocks the recreated quest The Bosses gathering.",
+            "Todos os chefes Scav aparecem na Reserve em toda raid. Libera a quest recriada The Bosses gathering.",
             [],
             OnRaid: ctx =>
             {
@@ -660,6 +672,33 @@ public static class EventCatalog
 
     internal static class Effects
     {
+        private static readonly string[] AllMaps = ["bigmap", "woods", "shoreline", "interchange", "lighthouse", "rezervbase", "tarkovstreets",
+            "factory4_day", "factory4_night", "laboratory", "sandbox", "sandbox_high"];
+
+        // drawers, jackets and PC blocks
+        private static readonly HashSet<string> SmallContainers = ["5675838d4bdc2d95058b456e", "578f87b7245977356274f2cd", "578f8778245977358849a9b5",
+            "5914944186f774189e5e76c2", "5937ef2b86f77408a47244b3", "59139c2186f77411564f8e42"];
+
+        /// <summary>Adds an item to small loot containers on every map, at about <paramref name="percent"/>% of each container's picks.</summary>
+        public static void AddStaticLoot(LoadContext ctx, string tpl, double percent)
+        {
+            foreach (var map in AllMaps)
+            {
+                ctx.Locations.GetLocation(map)?.StaticLoot?.AddTransformer(data =>
+                {
+                    if (data is null) return data;
+                    foreach (var (container, details) in data)
+                    {
+                        if (!SmallContainers.Contains(container.ToString()) || details.ItemDistribution is not { } dist) continue;
+                        if (dist.Any(d => d.Tpl == tpl)) continue;
+                        var sum = dist.Sum(d => d.RelativeProbability ?? 0);
+                        details.ItemDistribution = dist.Append(new ItemDistribution { Tpl = tpl, RelativeProbability = (float)Math.Max(1, Math.Round(sum * percent / (100 - percent))) }).ToList();
+                    }
+                    return data;
+                });
+            }
+        }
+
         public static void EnsureWeaponCrates(LoadContext ctx, int min, int max)
         {
             foreach (var (type, loot) in ctx.AirdropConfig.Loot)
