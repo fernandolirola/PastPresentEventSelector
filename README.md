@@ -8,6 +8,7 @@ Pick which events are active on your server, from a page in the server panel.
 - **April Fools parts:** winter weather, Santa and the ritual with the cultists, each on or off.
 - **43 past events** from 2021 to 2026, recreated from server data: boss gatherings and relocations, cultist nights, Free Labs, instant hideout building, flea market changes, bonus experience, weapon case airdrops, the mortar strike and more. Event quests that are still in the game data are unlocked with their event.
 - **New factions** through MoreBotsAPI: the **Cleanup Crew** (Arena Cleanup Crew on Factory, Tarkov Hospitality), the **Smugglers** (Smugglers 2024 and 2026) and the **Pillagers** (Casus belli). Each is its own enemy faction that fights everyone else, with its own name on the kill list and SAIN support.
+- **Smugglers quests, recreated:** That’s a Great Plan, Walter (2024, 3 quests) and Bulldogs Under The Rug (2026, 5 quests) unlock with their Smugglers event. Smugglers carry the locked cases, case keys and contraband the quests ask for.
 - **Blackout** (2026): Wedge and Black Division in every Lab raid, when the Black Division mod is installed.
 - Every card links to its section on the community wiki, and the quest button lists the whole quest chain of the event with a link to each quest, marking the ones your game does not have.
 
@@ -56,7 +57,7 @@ Install MoreBotsAPI first, then extract the zip into the game folder (the one wi
 
 ## Português
 
-Escolha quais eventos ficam ativos pela página `https://127.0.0.1:6969/ppes`. Os sazonais seguem as datas sozinhos (Automático), mas podem ser forçados (Ligado) ou desligados. Os 43 eventos antigos foram recriados com os dados do servidor, incluindo as facções Cleanup Crew, Smugglers e Pillagers (precisa do MoreBotsAPI) e o Blackout com o Wedge (precisa do mod Black Division). Eventos de boss e airdrop valem na próxima raid; o resto pede reiniciar o servidor. Cada card tem link para a wiki e as quests liberadas. Nada é gravado nos arquivos do jogo.
+Escolha quais eventos ficam ativos pela página `https://127.0.0.1:6969/ppes`. Os sazonais seguem as datas sozinhos (Automático), mas podem ser forçados (Ligado) ou desligados. Os 43 eventos antigos foram recriados com os dados do servidor, incluindo as facções Cleanup Crew, Smugglers e Pillagers (precisa do MoreBotsAPI) e o Blackout com o Wedge (precisa do mod Black Division). As quests dos Smugglers de 2024 e 2026 foram recriadas e liberam com o evento. Eventos de boss e airdrop valem na próxima raid; o resto pede reiniciar o servidor. Cada card tem link para a wiki e as quests liberadas. Nada é gravado nos arquivos do jogo.
 
 ## License
 

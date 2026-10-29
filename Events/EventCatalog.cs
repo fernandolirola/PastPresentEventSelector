@@ -1,4 +1,5 @@
 using PPES.Factions;
+using PPES.Quests;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Eft.Common;
 
@@ -167,6 +168,14 @@ public static class EventCatalog
         ["67503247622398376d0b57cd"] = "Khorovod",
         ["675031e1f300496cc4104450"] = "Hide in Plain Sight",
         ["675031f57775aada6b0f96a1"] = "Cheer Up",
+        ["674647f38466ebb03408b291"] = "That’s a Great Plan, Walter",
+        ["6746480cd0b2f8eb9b034e3e"] = "Chop the Thieving Hand",
+        ["6746480040ea3d1d4f0e5d51"] = "Shell Game",
+        ["69ae8e9d8d5952d853d791a1"] = "Bulldogs Under The Rug",
+        ["f4411dd1f99ce3678f7bd579"] = "Accept Delivery",
+        ["34f3c3bb54f8d18fd4a320c3"] = "Thirty Pieces of Silver",
+        ["0c472b7ba2915b42ba295a26"] = "Restocking Supplies",
+        ["68a6dfb24982a975f038440b"] = "Root of All Evil",
     };
 
     // seasonal quests SPT shows only while the event is on (configs/quest.json)
@@ -353,9 +362,10 @@ public static class EventCatalog
             }),
 
         new("smugglers2026", "Smugglers (2026)", "Mar 2026", EventTag.Simulated,
-            "Smugglers come back in groups of 3 or 4 on Customs, Woods, Shoreline, Interchange, Lighthouse, Streets and Ground Zero 21+, and every Scav boss is on Reserve. The quests and the airdrop cases are not included.",
-            "Os Smugglers voltam em grupos de 3 ou 4 na Customs, Woods, Shoreline, Interchange, Lighthouse, Streets e Ground Zero 21+, e todo chefe Scav aparece na Reserve. As quests e as maletas nos airdrops não estão incluídas.",
-            [],
+            "Smugglers come back in groups of 3 or 4 on Customs, Woods, Shoreline, Interchange, Lighthouse, Streets and Ground Zero 21+, every Scav boss is on Reserve and airdrops carry sealed weapon cases. Unlocks the quest chain Bulldogs Under The Rug (recreated, it needs MoreBotsAPI). The flare-called drops are not included.",
+            "Os Smugglers voltam em grupos de 3 ou 4 na Customs, Woods, Shoreline, Interchange, Lighthouse, Streets e Ground Zero 21+, todo chefe Scav aparece na Reserve e os airdrops trazem caixas lacradas de armas. Libera a cadeia de quests Bulldogs Under The Rug (recriada, precisa do MoreBotsAPI). Os airdrops chamados com sinalizador não estão incluídos.",
+            SmugglerQuests.Quests2026,
+            OnLoad: ctx => Effects.EnsureWeaponCrates(ctx, 1, 2),
             OnRaid: ctx =>
             {
                 if (ctx.Is(Smugglers2026Maps)) Effects.AddFactionGroup(ctx, FactionCatalog.Smuggler, "2,3");
@@ -400,9 +410,9 @@ public static class EventCatalog
             }),
 
         new("smugglers2024", "Smugglers (2024)", "Dec 2024", EventTag.Simulated,
-            "Smugglers, a new enemy faction, show up in groups of 3 on every map except Ground Zero for low levels and the Lab. The quests are not included.",
-            "Os Smugglers, uma facção inimiga nova, aparecem em grupos de 3 em todo mapa, menos o Ground Zero de nível baixo e a Lab. As quests não estão incluídas.",
-            [],
+            "Smugglers, a new enemy faction, show up in groups of 3 on every map except Ground Zero for low levels and the Lab, carrying locked cases, case keys and contraband. Unlocks the quest chain That’s a Great Plan, Walter (recreated, it needs MoreBotsAPI).",
+            "Os Smugglers, uma facção inimiga nova, aparecem em grupos de 3 em todo mapa, menos o Ground Zero de nível baixo e a Lab, levando maletas trancadas, chaves de maleta e contrabando. Libera a cadeia de quests That’s a Great Plan, Walter (recriada, precisa do MoreBotsAPI).",
+            SmugglerQuests.Quests2024,
             OnRaid: ctx =>
             {
                 if (ctx.Is(Smugglers2024Maps)) Effects.AddFactionGroup(ctx, FactionCatalog.Smuggler, "2");
@@ -560,15 +570,7 @@ public static class EventCatalog
             "Every airdrop carries two to four sealed weapon cases. Turn on Airdrop Traffic too to get one in every raid.",
             "Todo airdrop traz de duas a quatro caixas lacradas de armas. Ligue também o Airdrop Traffic para ter um em toda raid.",
             [],
-            OnLoad: ctx =>
-            {
-                foreach (var (type, loot) in ctx.AirdropConfig.Loot)
-                {
-                    if (type is "radar" or "toiletPaper" || loot.WeaponCrateCount is null) continue;
-                    loot.WeaponCrateCount.Min = Math.Max(loot.WeaponCrateCount.Min, 2);
-                    loot.WeaponCrateCount.Max = Math.Max(loot.WeaponCrateCount.Max, 4);
-                }
-            }),
+            OnLoad: ctx => Effects.EnsureWeaponCrates(ctx, 2, 4)),
 
         new("bandages", "Bandages Event", "Apr 2023", EventTag.Ready,
             "Unlocks the community quest Important Patient.",
@@ -658,6 +660,16 @@ public static class EventCatalog
 
     internal static class Effects
     {
+        public static void EnsureWeaponCrates(LoadContext ctx, int min, int max)
+        {
+            foreach (var (type, loot) in ctx.AirdropConfig.Loot)
+            {
+                if (type is "radar" or "toiletPaper" || loot.WeaponCrateCount is null) continue;
+                loot.WeaponCrateCount.Min = Math.Max(loot.WeaponCrateCount.Min, min);
+                loot.WeaponCrateCount.Max = Math.Max(loot.WeaponCrateCount.Max, max);
+            }
+        }
+
         public static void GatherScavBosses(RaidContext ctx, string map, string zones)
         {
             foreach (var (boss, home) in ScavBosses)

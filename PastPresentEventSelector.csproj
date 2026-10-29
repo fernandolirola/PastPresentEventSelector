@@ -6,7 +6,7 @@
     <OutputType>Library</OutputType>
     <AssemblyName>PastPresentEventSelector</AssemblyName>
     <RootNamespace>PPES</RootNamespace>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
     <!-- MoreBotsAPI is referenced, not shipped, so the release still has only the dll, config and wwwroot -->
@@ -41,6 +41,12 @@
     <None Include="config.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Remove="wwwroot\**" />
     <None Include="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="Quests\*.json" />
+    <Content Remove="Quests\*.json" />
+    <None Remove="tools\**" />
+    <None Remove="research\**" />
+    <Content Remove="research\**" />
+    <None Remove="PLAN-*.md" />
     <None Remove="pesquisa-eventos.md" />
     <None Remove="release\**" />
     <Content Remove="release\**" />

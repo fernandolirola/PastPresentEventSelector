@@ -4,7 +4,7 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>PastPresentEventSelector.Prepatch</AssemblyName>
     <RootNamespace>PPES.Prepatch</RootNamespace>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <GenerateDependencyFile>false</GenerateDependencyFile>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <!-- game install used only for references at build time -->

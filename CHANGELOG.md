@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0
+
+- Smugglers quests recreated. Smugglers (2024) unlocks That’s a Great Plan, Walter, Chop the Thieving Hand and Shell Game, with the original texts in every language and the locked case crafts. Smugglers (2026) unlocks Bulldogs Under The Rug, Accept Delivery, Thirty Pieces of Silver, Restocking Supplies and Root of All Evil, with new texts in English and Portuguese.
+- Smugglers always carry a backpack and often have locked cases, case keys and contraband in it. Opened cases can hold Skier's contraband.
+- Smugglers (2026) airdrops carry one or two sealed weapon cases.
+- Bulldogs Under The Rug needs level 15 instead of the Fishing Gear quest. Its letter objective, an item that is not in the game, is replaced by handing over a contraband box.
+- Quests accepted during an event stay in your profile after the event ends.
+
 ## 1.2.0
 
 - New factions through MoreBotsAPI, each an enemy faction of its own with its name on the kill list and SAIN support: the Cleanup Crew, the Smugglers and the Pillagers.
