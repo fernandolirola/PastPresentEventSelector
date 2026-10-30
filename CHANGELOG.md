@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.1
+
+- **Blackout with Vultify's Blackout mod:** when that mod is installed, the Blackout event makes every Lab raid go dark too, with its gate-only extracts, keypad codes and arsenal key, together with Wedge and Black Division. Without the event, Vultify's mod keeps its own chance. The page shows a badge for it on the Blackout card.
+
 ## 1.5.0
 
 - **Scourge Incursion (Oct 2026):** a new event that puts Scourge and his guards in every Lab raid. It needs the SCOURGE mod, which brings the boss, quests, items and voice; without the event Scourge keeps that mod's own spawn chance.

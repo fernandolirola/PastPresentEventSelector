@@ -14,6 +14,7 @@ public static class ModRequirements
     public const string MoreBots = "morebots";
     public const string BlackDivision = "blackdiv";
     public const string Scourge = "scourge";
+    public const string Blackout = "vultifyblackout";
 
     /// <summary>Set at load: MoreBotsAPI's server part is there and the PPES factions were built with it.</summary>
     public static bool MoreBotsLoaded { get; internal set; }
@@ -28,6 +29,7 @@ public static class ModRequirements
         new(MoreBots, "MoreBotsAPI", "https://sp-mod.com/mod/2426/morebotsapi", () => MoreBotsLoaded),
         new(BlackDivision, "Black Division", "https://sp-mod.com/mod/2511/wtt-black-division-redacted-home", () => Factions.FactionCatalog.BlackDivision),
         new(Scourge, "SCOURGE", "https://sp-mod.com/mod/3196/scourge", () => ScourgeLoaded),
+        new(Blackout, "Blackout (Vultify)", "https://sp-mod.com/mod/2843/blackout", () => VultifyBlackout.Loaded),
     ];
 
     public static ModRequirement Get(string id) => All.First(r => r.Id == id);

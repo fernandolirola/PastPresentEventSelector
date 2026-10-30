@@ -30,8 +30,11 @@ public sealed record PastEventDef(
     Action<LoadContext>? OnLoad = null,
     Action<RaidContext>? OnRaid = null,
     string? Group = null,
-    ModNeed? Needs = null)
+    ModNeed? Needs = null,
+    ModNeed? AlsoNeeds = null)
 {
+    public IEnumerable<ModNeed> AllNeeds => new[] { Needs, AlsoNeeds }.OfType<ModNeed>();
+
     /// <summary>Load-time edits and quest unlocks only take effect on server start; raid edits apply from the next raid.</summary>
     public bool NeedsRestart => OnLoad is not null || Quests.Length > 0;
 
@@ -267,16 +270,19 @@ public static class EventCatalog
             Needs: new(ModRequirements.Scourge)),
 
         new("blackout", "Blackout", "Jul 2026", EventTag.Simulated,
-            "Wedge and his Black Division men are in every Lab raid, with another Black Division team at the gates. The darkness, the new extracts and the keypad codes are not included. Unlocks the recreated quest chain Wrench and Waterboarding. Needs the Black Division mod.",
-            "O Wedge e os homens da Black Division aparecem em toda raid na Lab, com outro time da Black Division nos portões. O apagão, as novas saídas e os códigos dos teclados não estão incluídos. Libera a cadeia de quests recriada Wrench and Waterboarding. Precisa do mod Black Division.",
+            "Wedge and his Black Division men are in every Lab raid, with another Black Division team at the gates. With Vultify's Blackout mod, every Lab raid also goes dark, with its gate-only extracts, keypad codes and arsenal key. Unlocks the recreated quest chain Wrench and Waterboarding. Needs the Black Division mod.",
+            "O Wedge e os homens da Black Division aparecem em toda raid na Lab, com outro time da Black Division nos portões. Com o mod Blackout do Vultify, toda raid na Lab também fica no escuro, com só os portões como saída, códigos nos teclados e a chave do arsenal. Libera a cadeia de quests recriada Wrench and Waterboarding. Precisa do mod Black Division.",
             [],
             OnRaid: ctx =>
             {
-                if (!ctx.Is("laboratory") || !FactionCatalog.BlackDivision) return;
+                if (!ctx.Is("laboratory")) return;
+                VultifyBlackout.Force(ctx);
+                if (!FactionCatalog.BlackDivision) return;
                 Effects.ForceBoss(ctx, "bossWedge", "blackDivIb", "3,3,3,4,4,6", BlackDivLab);
                 Effects.AddGroup(ctx, "blackDivAssault", "2,3", "BotZoneGate1,BotZoneGate2", 100);
             },
-            Needs: new(ModRequirements.BlackDivision)),
+            Needs: new(ModRequirements.BlackDivision),
+            AlsoNeeds: new(ModRequirements.Blackout, "the darkness, the gate-only extracts and the keypad codes", "o apagão, a saída só pelos portões e os códigos dos teclados")),
 
         new("bonusExp", "Bonus EXP Weekend", "May to Jul 2026", EventTag.Simulated,
             "You earn about 25% more experience from raids.",
@@ -693,7 +699,7 @@ public static class EventCatalog
 
     /// <summary>The mod an event needs as a whole that is not installed, or null when it can run.</summary>
     public static ModRequirement? MissingRequirement(PastEventDef e) =>
-        e.Needs is { Partial: false } need && !ModRequirements.IsInstalled(need.Mod) ? ModRequirements.Get(need.Mod) : null;
+        e.AllNeeds.Where(n => !n.Partial && !ModRequirements.IsInstalled(n.Mod)).Select(n => ModRequirements.Get(n.Mod)).FirstOrDefault();
 
     internal static class Effects
     {

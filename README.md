@@ -9,7 +9,7 @@ Pick which events are active on your server, from a page in the server panel.
 - **44 past events** from 2021 to 2026, recreated from server data: boss gatherings and relocations, cultist nights, Free Labs, instant hideout building, flea market changes, bonus experience, weapon case airdrops, the mortar strike and more. Event quests that are still in the game data are unlocked with their event.
 - **New factions** through MoreBotsAPI: the **Cleanup Crew** (Arena Cleanup Crew on Factory, Tarkov Hospitality), the **Smugglers** (Smugglers 2024 and 2026) and the **Pillagers** (Casus belli). Each is its own enemy faction that fights everyone else, with its own name on the kill list and SAIN support.
 - **98 recreated event quests** unlock with their events: The Tarkov Mystery (with a Skier or Peacekeeper route), The TerraGroup Trail, Shifting Balance, Smugglers 2024 and 2026, Tarkov Hospitality, Casus belli, Down the Rabbit Hole, Blackout, Arms Race (with the arms dealers Gus and Basmach on Streets), Full Speed Ahead, Letters, Staying Light, Wild Wild Woods and The Bosses gathering. Texts still in the game are used in every language; the rest are in English and Portuguese. Accepted quests stay in your profile after the event ends.
-- **Blackout** (2026): Wedge and Black Division in every Lab raid, when the Black Division mod is installed.
+- **Blackout** (2026): Wedge and Black Division in every Lab raid, when the Black Division mod is installed. With Vultify's Blackout mod the Lab also goes dark, with its gate-only extracts, keypad codes and arsenal key.
 - Every card links to its section on the community wiki, and the quest button lists the whole quest chain of the event with a link to each quest, marking the ones your game does not have.
 
 Open `https://127.0.0.1:6969/ppes` while the server is running. The page is in English and Portuguese.
@@ -49,6 +49,7 @@ Optional, and the page marks each event that uses one, green when installed and 
 
 - **Black Division** for the Blackout event.
 - **SCOURGE** for the Scourge Incursion event.
+- **Blackout** by Vultify for the darkness, extracts and keypads of the Blackout event.
 
 ## Compatibility
 
@@ -65,7 +66,7 @@ Install MoreBotsAPI first, then extract the zip into the game folder (the one wi
 
 ## Português
 
-Escolha quais eventos ficam ativos pela página `https://127.0.0.1:6969/ppes`. Os sazonais seguem as datas sozinhos (Automático), mas podem ser forçados (Ligado) ou desligados. Os 44 eventos antigos foram recriados com os dados do servidor, incluindo as facções Cleanup Crew, Smugglers e Pillagers (precisa do MoreBotsAPI), o Blackout com o Wedge (com o mod Black Division) e o Scourge Incursion (com o mod SCOURGE). Black Division e SCOURGE são opcionais: a página marca cada evento que usa um deles, em verde quando está instalado e em laranja quando não. 98 quests de eventos foram recriadas e liberam com o evento, como The Tarkov Mystery, The TerraGroup Trail, Shifting Balance e as dos Smugglers. Na prévia da raid, o botão Editar muda chance, zonas e escolta de chefes e grupos, tira ou adiciona chefes e facções. O Halloween ganhou o Surto de 2026 (infectados em todos os mapas e as 5 quests de 2026) e o loot de Halloween. A rotação agora pode ser por hora, dia ou a cada tantas raids, e os sazonais podem ter rotação própria. Eventos de boss e airdrop valem na próxima raid; o resto pede reiniciar o servidor. Cada card tem link para a wiki e as quests liberadas. Nada é gravado nos arquivos do jogo.
+Escolha quais eventos ficam ativos pela página `https://127.0.0.1:6969/ppes`. Os sazonais seguem as datas sozinhos (Automático), mas podem ser forçados (Ligado) ou desligados. Os 44 eventos antigos foram recriados com os dados do servidor, incluindo as facções Cleanup Crew, Smugglers e Pillagers (precisa do MoreBotsAPI), o Blackout com o Wedge (com o mod Black Division, e no escuro com o mod Blackout do Vultify) e o Scourge Incursion (com o mod SCOURGE). Black Division, SCOURGE e Blackout são opcionais: a página marca cada evento que usa um deles, em verde quando está instalado e em laranja quando não. 98 quests de eventos foram recriadas e liberam com o evento, como The Tarkov Mystery, The TerraGroup Trail, Shifting Balance e as dos Smugglers. Na prévia da raid, o botão Editar muda chance, zonas e escolta de chefes e grupos, tira ou adiciona chefes e facções. O Halloween ganhou o Surto de 2026 (infectados em todos os mapas e as 5 quests de 2026) e o loot de Halloween. A rotação agora pode ser por hora, dia ou a cada tantas raids, e os sazonais podem ter rotação própria. Eventos de boss e airdrop valem na próxima raid; o resto pede reiniciar o servidor. Cada card tem link para a wiki e as quests liberadas. Nada é gravado nos arquivos do jogo.
 
 ## License
 

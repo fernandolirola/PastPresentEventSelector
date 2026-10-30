@@ -22,6 +22,7 @@ public sealed class FactionSetup(IServiceProvider services, BotTable botTable, I
     {
         FactionCatalog.BlackDivision = botTable.Types.ContainsKey("bosswedge");
         ModRequirements.ScourgeLoaded = botTable.Types.ContainsKey(ModRequirements.ScourgeBoss.ToLowerInvariant());
+        VultifyBlackout.Find(services, logger);
 
         if (!AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name == "MoreBotsServer"))
         {
