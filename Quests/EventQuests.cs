@@ -91,6 +91,8 @@ public sealed class EventQuests(
             AddLocales(json.Deserialize<Dictionary<string, Dictionary<string, string>>>(Resource("eventLocales.json"))!, meta.Aliases);
             UnlockRecipesWith(Walter);
             AddFactionLoot();
+            // a mod that adds its boss after MoreBotsAPI loads bots is only in the table by now
+            ModRequirements.ScourgeLoaded |= botTable.Types.ContainsKey(ModRequirements.ScourgeBoss.ToLowerInvariant());
             if (inventoryConfig.RandomLootContainers.TryGetValue(OpenedCase, out var opened) && opened.RewardTplPool is { } pool)
                 pool[Contraband] = pool.Values.DefaultIfEmpty(1).Sum();
 
@@ -105,7 +107,7 @@ public sealed class EventQuests(
     }
 
     private static bool Available(string need) =>
-        need == EventCatalog.RequiresBlackDivision ? FactionCatalog.BlackDivision : FactionCatalog.IsReady(need);
+        need == ModRequirements.BlackDivision ? FactionCatalog.BlackDivision : FactionCatalog.IsReady(need);
 
     private static string Resource(string name)
     {

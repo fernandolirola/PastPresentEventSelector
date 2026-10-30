@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using BepInEx.Logging;
 using Mono.Cecil;
 using MoreBotsAPI;
 
@@ -18,6 +21,21 @@ public static class FactionTypesPatch
     public static IEnumerable<string> TargetDLLs { get; } = new[] { "Assembly-CSharp.dll" };
 
     public static void Patch(ref AssemblyDefinition assembly)
+    {
+        // MoreBotsAPI is optional: without it the factions are skipped and the rest of PPES still works
+        try
+        {
+            RegisterAll(assembly);
+        }
+        catch (Exception ex)
+        {
+            Logger.CreateLogSource("PPES Prepatch").LogWarning($"MoreBotsAPI not found, PPES factions skipped ({ex.GetType().Name})");
+        }
+    }
+
+    // kept out of line so the MoreBotsAPI types are only resolved inside the try above
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void RegisterAll(AssemblyDefinition assembly)
     {
         Register(assembly, 731001, "ppesCleanupCrew", "PpesCleanupCrew");
         Register(assembly, 731002, "ppesSmuggler", "PpesSmuggler");

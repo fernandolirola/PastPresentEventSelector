@@ -4,7 +4,7 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>PastPresentEventSelector.Prepatch</AssemblyName>
     <RootNamespace>PPES.Prepatch</RootNamespace>
-    <Version>1.4.1</Version>
+    <Version>1.5.0</Version>
     <GenerateDependencyFile>false</GenerateDependencyFile>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <!-- game install used only for references at build time -->
@@ -16,6 +16,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Reference Include="BepInEx">
+      <HintPath>$(SPTPath)\BepInEx\core\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Mono.Cecil">
       <HintPath>$(SPTPath)\BepInEx\core\Mono.Cecil.dll</HintPath>
       <Private>false</Private>

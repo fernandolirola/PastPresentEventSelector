@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0
+
+- **Scourge Incursion (Oct 2026):** a new event that puts Scourge and his guards in every Lab raid. It needs the SCOURGE mod, which brings the boss, quests, items and voice; without the event Scourge keeps that mod's own spawn chance.
+- **Mod badges on the page:** events that use another mod (MoreBotsAPI, Black Division, SCOURGE) show it, green when installed and orange when not, with a link to the mod on the Forge. Turning one on without its mod shows a warning.
+- **Server panel card:** the mod is now listed as "Past & Present Event Selector", so its card title wraps instead of running past the card edge on the server landing page.
+
 ## 1.4.1
 
 - **Zombie melee fix works again:** the client plugin from 1.4.0 never loaded on the current game version (the log said "BotMeleeWeaponData has no BotOwner field"), so with SAIN, unarmed and melee zombies still never hit. Now they attack.

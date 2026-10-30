@@ -724,7 +724,15 @@
             Snackbar.Add(T($"{other.Name} foi desligado: não combina com {e.Name}.", $"{other.Name} was turned off: it can't run with {e.Name}."), Severity.Info);
         }
         working.Events.Add(e.Id);
+        if (MissingNeed(e) is { } miss)
+            Snackbar.Add(miss.Need.Partial
+                ? T($"{miss.Mod.Name} não está instalado: {e.Name} roda sem {miss.Need.LostPt}.", $"{miss.Mod.Name} is not installed: {e.Name} runs without {miss.Need.LostEn}.")
+                : T($"{miss.Mod.Name} não está instalado: {e.Name} não vai fazer nada.", $"{miss.Mod.Name} is not installed: {e.Name} will do nothing."),
+                Severity.Warning);
     }
+
+    private static (ModRequirement Mod, ModNeed Need)? MissingNeed(PastEventDef e) =>
+        e.Needs is { } need && !ModRequirements.IsInstalled(need.Mod) ? (ModRequirements.Get(need.Mod), need) : null;
 
     private static IEnumerable<PastEventDef> GroupMates(PastEventDef e) =>
         e.Group is null ? [] : EventCatalog.PastEvents.Where(o => o.Group == e.Group && o.Id != e.Id);
@@ -809,6 +817,7 @@
             @ConflictNotes(e)
             <div class="ppes-card-foot">
                 <span class="@($"ppes-tag ppes-tag-{e.Tag.ToString().ToLowerInvariant()}")">@TagLabel(e.Tag)</span>
+                @NeedBadge(e)
                 @QuestInfo(EventCatalog.EventQuests(e.Id, e.Quests))
                 <span class="ppes-hint ppes-foot-end">@(e.NeedsRestart ? T("Pede reiniciar o servidor", "Needs a server restart") : T("Vale na próxima raid", "Applies from the next raid"))</span>
             </div>
@@ -826,8 +835,11 @@
             </div>
             <span class="ppes-row-desc spt-muted" title="@T(e.DescPt, e.DescEn)">@T(e.DescPt, e.DescEn)</span>
             <span class="ppes-row-kinds">@KindIcons(e)</span>
-            @QuestInfo(EventCatalog.EventQuests(e.Id, e.Quests))
-            <span class="@($"ppes-tag ppes-tag-{e.Tag.ToString().ToLowerInvariant()}")">@TagLabel(e.Tag)</span>
+            <span class="ppes-row-tags">
+                @QuestInfo(EventCatalog.EventQuests(e.Id, e.Quests))
+                @NeedBadge(e)
+                <span class="@($"ppes-tag ppes-tag-{e.Tag.ToString().ToLowerInvariant()}")">@TagLabel(e.Tag)</span>
+            </span>
         </div>
         @ConflictNotes(e)
     };
@@ -860,16 +872,37 @@
         }
     };
 
+    private RenderFragment NeedBadge(PastEventDef e) => __builder =>
+    {
+        if (e.Needs is not { } need) return;
+        var mod = ModRequirements.Get(need.Mod);
+        var installed = mod.Installed();
+        var title = installed
+            ? T($"Usa o mod {mod.Name}, que está instalado.", $"Uses the {mod.Name} mod, which is installed.")
+            : need.Partial
+                ? T($"O mod {mod.Name} não está instalado, então o evento fica sem {need.LostPt}.", $"The {mod.Name} mod is not installed, so the event runs without {need.LostEn}.")
+                : T($"Precisa do mod {mod.Name}, que não está instalado.", $"Needs the {mod.Name} mod, which is not installed.");
+        <span class="@($"ppes-need {(installed ? "ppes-need-ok" : "ppes-need-missing")}")" title="@title">
+            <MudIcon Icon="@(installed ? Icons.Material.Filled.Extension : Icons.Material.Filled.ExtensionOff)" /> @mod.Name
+        </span>
+    };
+
     private RenderFragment ConflictNotes(PastEventDef e) => __builder =>
     {
         var mates = GroupMates(e).ToList();
         var overlaps = Overlaps(e);
-        var missing = EventCatalog.MissingRequirement(e);
+        var missing = MissingNeed(e);
         if (mates.Count == 0 && overlaps.Count == 0 && missing is null) return;
         <div class="ppes-conflicts">
-            @if (missing is not null)
+            @if (missing is { } miss)
             {
-                <span class="ppes-conflict"><MudIcon Icon="@Icons.Material.Filled.Extension" /> @T($"Precisa do mod {missing}, que não está instalado. Sem ele o evento não faz nada.", $"Needs the {missing} mod, which is not installed. Without it the event does nothing.")</span>
+                <span class="ppes-conflict ppes-conflict-need">
+                    <MudIcon Icon="@Icons.Material.Filled.Extension" />
+                    @(miss.Need.Partial
+                        ? T($"O mod {miss.Mod.Name} não está instalado, então o evento fica sem {miss.Need.LostPt}. O resto funciona.", $"The {miss.Mod.Name} mod is not installed, so the event runs without {miss.Need.LostEn}. The rest works.")
+                        : T($"Precisa do mod {miss.Mod.Name}, que não está instalado. Sem ele o evento não faz nada.", $"Needs the {miss.Mod.Name} mod, which is not installed. Without it the event does nothing."))
+                    <a href="@miss.Mod.ForgeUrl" target="_blank" rel="noopener noreferrer">@T("Baixar no Forge", "Get it on the Forge")</a>
+                </span>
             }
             @if (mates.Count > 0)
             {

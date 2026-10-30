@@ -30,7 +30,7 @@ public sealed record PastEventDef(
     Action<LoadContext>? OnLoad = null,
     Action<RaidContext>? OnRaid = null,
     string? Group = null,
-    string? Requires = null)
+    ModNeed? Needs = null)
 {
     /// <summary>Load-time edits and quest unlocks only take effect on server start; raid edits apply from the next raid.</summary>
     public bool NeedsRestart => OnLoad is not null || Quests.Length > 0;
@@ -42,8 +42,6 @@ public sealed record PastEventDef(
 public static class EventCatalog
 {
     internal static readonly Dictionary<string, List<string>> ExtraQuests = new(StringComparer.OrdinalIgnoreCase);
-
-    public const string RequiresBlackDivision = "blackdiv";
 
     /// <summary>Event key of the Halloween 2026 quests, which belong to the Halloween card rather than a past event.</summary>
     public const string Halloween2026 = "halloween2026";
@@ -256,6 +254,18 @@ public static class EventCatalog
                 }
             }),
 
+        new("scourgeIncursion", "Scourge Incursion", "Oct 2026", EventTag.Simulated,
+            "Scourge, an arena fighter with his own guards, is in every Lab raid. Without this event he keeps the SCOURGE mod's own spawn chance. The quests, items and voice come from the SCOURGE mod. Needs the SCOURGE mod.",
+            "O Scourge, um lutador da arena com os próprios guardas, aparece em toda raid na Lab. Sem este evento ele segue a chance de spawn do próprio mod SCOURGE. As quests, itens e a voz vêm do mod SCOURGE. Precisa do mod SCOURGE.",
+            [],
+            OnRaid: ctx =>
+            {
+                // without the mod the game does not know this boss and the raid fails to load
+                if (!ctx.Is("laboratory") || !ModRequirements.ScourgeLoaded) return;
+                Effects.ForceBoss(ctx, ModRequirements.ScourgeBoss, "followerScourgeEventLab", "4", LabZones);
+            },
+            Needs: new(ModRequirements.Scourge)),
+
         new("blackout", "Blackout", "Jul 2026", EventTag.Simulated,
             "Wedge and his Black Division men are in every Lab raid, with another Black Division team at the gates. The darkness, the new extracts and the keypad codes are not included. Unlocks the recreated quest chain Wrench and Waterboarding. Needs the Black Division mod.",
             "O Wedge e os homens da Black Division aparecem em toda raid na Lab, com outro time da Black Division nos portões. O apagão, as novas saídas e os códigos dos teclados não estão incluídos. Libera a cadeia de quests recriada Wrench and Waterboarding. Precisa do mod Black Division.",
@@ -266,7 +276,7 @@ public static class EventCatalog
                 Effects.ForceBoss(ctx, "bossWedge", "blackDivIb", "3,3,3,4,4,6", BlackDivLab);
                 Effects.AddGroup(ctx, "blackDivAssault", "2,3", "BotZoneGate1,BotZoneGate2", 100);
             },
-            Requires: RequiresBlackDivision),
+            Needs: new(ModRequirements.BlackDivision)),
 
         new("bonusExp", "Bonus EXP Weekend", "May to Jul 2026", EventTag.Simulated,
             "You earn about 25% more experience from raids.",
@@ -319,7 +329,8 @@ public static class EventCatalog
                     Effects.AddGroup(ctx, FactionCatalog.CleanupCrew, "2,3", "ZoneBrokenVill", 100);
                 }
             },
-            Group: "goons"),
+            Group: "goons",
+            Needs: new(ModRequirements.MoreBots, "the Cleanup Crew", "a Cleanup Crew")),
 
         new("fullSpeedAhead", "Full Speed Ahead", "May 2026", EventTag.Simulated,
             "Rogues patrol Shoreline and Reserve, Glukhar is in every Reserve raid and the Goons only roam Shoreline, from the gas station to the power station. Unlocks the recreated quest chain No Smoke Without Fire.",
@@ -353,7 +364,8 @@ public static class EventCatalog
                 ctx.AddFrom("interchange", "bossKilla", "BotZone", 100);
                 if (Effects.AddGroup(ctx, FactionCatalog.CleanupCrew, "2,3", "BotZone", 100, groups: 2))
                     ctx.Location.Waves?.RemoveAll(w => w.WildSpawnType == WildSpawnType.assault);
-            }),
+            },
+            Needs: new(ModRequirements.MoreBots, "the Cleanup Crew (the Scavs stay)", "a Cleanup Crew (os Scavs continuam)")),
 
         new("reshalaVsGlukhar", "Reshala vs Glukhar", "May 2026", EventTag.Simulated,
             "Reshala is in every Customs raid and Glukhar moves from Reserve to Customs to fight him.",
@@ -375,7 +387,8 @@ public static class EventCatalog
             OnRaid: ctx =>
             {
                 if (ctx.Is(PillagerMaps)) Effects.AddFactionGroup(ctx, FactionCatalog.Pillager, "2,3");
-            }),
+            },
+            Needs: new(ModRequirements.MoreBots)),
 
         new("smugglers2026", "Smugglers (2026)", "Mar 2026", EventTag.Simulated,
             "Smugglers come back in groups of 3 or 4 on Customs, Woods, Shoreline, Interchange, Lighthouse, Streets and Ground Zero 21+, every Scav boss is on Reserve and airdrops carry sealed weapon cases. Unlocks the quest chain Bulldogs Under The Rug (recreated, it needs MoreBotsAPI). The flare-called drops are not included.",
@@ -387,7 +400,8 @@ public static class EventCatalog
                 if (ctx.Is(Smugglers2026Maps)) Effects.AddFactionGroup(ctx, FactionCatalog.Smuggler, "2,3");
                 if (ctx.Is("rezervbase")) Effects.GatherScavBosses(ctx, "rezervbase", ReserveZones);
             },
-            Group: "smugglers"),
+            Group: "smugglers",
+            Needs: new(ModRequirements.MoreBots, "the Smugglers and their quests", "os Smugglers e as quests deles")),
 
         new("permanentBossPresence", "Permanent Boss Presence", "2023 to 2026", EventTag.Simulated,
             "Every boss spawns on its own maps in every raid (Partisan keeps his own rules). Also unlocks the quest Hint.",
@@ -433,7 +447,8 @@ public static class EventCatalog
             {
                 if (ctx.Is(Smugglers2024Maps)) Effects.AddFactionGroup(ctx, FactionCatalog.Smuggler, "2");
             },
-            Group: "smugglers"),
+            Group: "smugglers",
+            Needs: new(ModRequirements.MoreBots)),
 
         new("mortarStrike", "Mortar Strike", "Sep 2024", EventTag.Experimental,
             "Mortar barrages hit Customs, Woods, Shoreline and Reserve, with a special airdrop carrying radar parts. Unlocks the quest Into the Inferno.",
@@ -463,7 +478,8 @@ public static class EventCatalog
                 foreach (var dealer in new[] { FactionCatalog.Gus, FactionCatalog.Basmach })
                     if (Effects.AddGroup(ctx, dealer, "2", FactionZones["tarkovstreets"], 100))
                         ctx.Location.BossLocationSpawn!.Last().BossEscortType = "followerKolontaySecurity";
-            }),
+            },
+            Needs: new(ModRequirements.MoreBots, "Gus and Basmach on Streets and their quests", "Gus e Basmach na Streets e as quests deles")),
 
         new("keyToSalvation", "A Key to Salvation", "Jun 2024", EventTag.Ready,
             "Unlocks the quest A Key to Salvation.",
@@ -675,12 +691,9 @@ public static class EventCatalog
 
     public static bool IsKnownPast(string id) => Past(id) is not null;
 
-    /// <summary>The mod an event needs that is not installed, or null when it can run.</summary>
-    public static string? MissingRequirement(PastEventDef e) => e.Requires switch
-    {
-        RequiresBlackDivision when !FactionCatalog.BlackDivision => "Black Division",
-        _ => null,
-    };
+    /// <summary>The mod an event needs as a whole that is not installed, or null when it can run.</summary>
+    public static ModRequirement? MissingRequirement(PastEventDef e) =>
+        e.Needs is { Partial: false } need && !ModRequirements.IsInstalled(need.Mod) ? ModRequirements.Get(need.Mod) : null;
 
     internal static class Effects
     {
