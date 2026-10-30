@@ -71,3 +71,5 @@ Escolha quais eventos ficam ativos pela página `https://127.0.0.1:6969/ppes`. O
 ## License
 
 MIT
+
+<sub>Enjoying the mod? Curtiu o mod? [Buy me a coffee on Ko-fi](https://ko-fi.com/zezinhoeft)</sub>
