@@ -10,7 +10,8 @@ namespace PPES.Client;
 /// <summary>
 /// Client fixes for the event content. Each patch is a no-op unless the problem it fixes is present.
 /// </summary>
-[BepInPlugin("zezinho.ppes.client", "Past & Present Event Selector Client", "1.4.1")]
+// same GUID as the server mod: the Forge checks that both DLLs declare the registered one
+[BepInPlugin("com.zezinho.pastpresenteventselector", "zezinho-PastPresentEventSelector", "1.4.1")]
 public class Plugin : BaseUnityPlugin
 {
     private void Awake()
