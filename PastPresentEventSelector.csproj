@@ -6,7 +6,7 @@
     <OutputType>Library</OutputType>
     <AssemblyName>PastPresentEventSelector</AssemblyName>
     <RootNamespace>PPES</RootNamespace>
-    <Version>1.4.0</Version>
+    <Version>1.4.1</Version>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
     <!-- MoreBotsAPI is referenced, not shipped, so the release still has only the dll, config and wwwroot -->
@@ -38,7 +38,8 @@
 
   <ItemGroup>
     <Content Remove="config.json" />
-    <None Include="config.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- not shipped: the server writes the defaults on first run, and a shipped copy would overwrite users' settings on update -->
+    <None Remove="config.json" />
     <Content Remove="wwwroot\**" />
     <None Include="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
     <EmbeddedResource Include="Quests\*.json" />

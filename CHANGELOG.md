@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.1
+
+- **Zombie melee fix works again:** the client plugin from 1.4.0 never loaded on the current game version (the log said "BotMeleeWeaponData has no BotOwner field"), so with SAIN, unarmed and melee zombies still never hit. Now they attack.
+- **Updating keeps your settings:** the zip no longer includes config.json, so extracting it over an install no longer resets your picks, spawn edits and presets. A new install still gets the defaults on the first start.
+
 ## 1.4.0
 
 - **Editable raid preview:** press Edit to change the chance, zones and escort of any boss or group on a map, remove one, or add a boss or faction (Cleanup Crew, Smugglers, Pillagers, Gus, Basmach, Black Division, infected and more). Your changes apply after the events, from the next raid, and are marked "yours" with an undo per row and per map.

@@ -10,7 +10,7 @@ namespace PPES.Client;
 /// <summary>
 /// Client fixes for the event content. Each patch is a no-op unless the problem it fixes is present.
 /// </summary>
-[BepInPlugin("zezinho.ppes.client", "Past & Present Event Selector Client", "1.4.0")]
+[BepInPlugin("zezinho.ppes.client", "Past & Present Event Selector Client", "1.4.1")]
 public class Plugin : BaseUnityPlugin
 {
     private void Awake()
@@ -39,7 +39,8 @@ internal static class InfectedMeleeFix
     public static void Enable(Harmony harmony)
     {
         var target = AccessTools.Method(typeof(BotMeleeWeaponData), "RunToEnemyUpdate") ?? throw new MissingMethodException("BotMeleeWeaponData.RunToEnemyUpdate");
-        var field = AccessTools.GetDeclaredFields(typeof(BotMeleeWeaponData)).FirstOrDefault(f => f.FieldType == typeof(BotOwner))
+        // the owner lives on the BotData base class, under a name that changes between game builds
+        var field = AccessTools.FindIncludingBaseTypes(typeof(BotMeleeWeaponData), t => AccessTools.GetDeclaredFields(t).FirstOrDefault(f => f.FieldType == typeof(BotOwner)))
             ?? throw new MissingFieldException("BotMeleeWeaponData has no BotOwner field");
         _owner = AccessTools.FieldRefAccess<BotMeleeWeaponData, BotOwner>(field);
         harmony.Patch(target, prefix: new HarmonyMethod(typeof(InfectedMeleeFix), nameof(Prefix)) { priority = Priority.Last, after = ["me.sol.sain"] });
