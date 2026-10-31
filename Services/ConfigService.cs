@@ -100,7 +100,9 @@ public sealed class ConfigService
         config.Seasonal = NormalizeSeasonal(config.Seasonal);
         config.Events = NormalizeEvents(config.Events);
         config.Halloween ??= new HalloweenParts();
-        config.Halloween.MisfirePercent = Math.Clamp(config.Halloween.MisfirePercent, 0, 100);
+        config.Mechanics ??= new MechanicsSettings();
+        config.Mechanics.KollontayJam = Math.Clamp(config.Mechanics.KollontayJam, 0, 100);
+        config.Mechanics.VengefulJam = Math.Clamp(config.Mechanics.VengefulJam, 0, 100);
         config.Christmas ??= new ChristmasParts();
         config.AprilFools ??= new AprilFoolsParts();
         config.Rotation ??= new RotationSettings();

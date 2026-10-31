@@ -2,7 +2,7 @@
 
 ## 1.6.0
 
-- **Boss weapon jams, your percentage:** a new field on the Halloween card sets how long the weapon jams from Kollontay and Vengeful Zryachiy last, from 0 (off) to 100 (as in the game). Kollontay's 5 second jam is scaled; Vengeful Zryachiy's jam, which never ends in the game, becomes a timed jam below 100 and the panic stays. The client plugin reads the value from the server at the start of each raid, so it needs the new client files.
+- **Mechanics panel:** two new settings set how long the weapon jams from bosses last, in percent of the game's own (0 turns it off). Kollontay's jam applies in every raid, since he is a regular Streets boss. Vengeful Zryachiy's jam only matters in Halloween with the ritual part on, which is when he appears; below 100 it becomes a timed jam, because in the game it never ends, and his panic stays. The client plugin reads the values from the server at each raid, so every player needs the new client files.
 
 ## 1.5.1
 

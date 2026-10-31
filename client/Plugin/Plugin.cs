@@ -47,7 +47,8 @@ internal static class BossMisfire
 {
     // stock Vengeful Zryachiy misfire has no timer; 100 percent keeps that, lower values become a timed jam of this length
     private const float TimedSecondsAtFull = 300f;
-    private static int _percent = 100;
+    private static int _kollontay = 100;
+    private static int _vengeful = 100;
     private static float _readAt = -100f;
 
     public static void Enable(Harmony harmony)
@@ -58,25 +59,32 @@ internal static class BossMisfire
             prefix: new HarmonyMethod(typeof(BossMisfire), nameof(DoEventPrefix)));
     }
 
-    private static int Percent()
+    private static void Refresh()
     {
-        if (UnityEngine.Time.realtimeSinceStartup - _readAt < 30f) return _percent;
+        if (UnityEngine.Time.realtimeSinceStartup - _readAt < 30f) return;
         _readAt = UnityEngine.Time.realtimeSinceStartup;
         try
         {
-            var match = Regex.Match(RequestHandler.GetJson("/ppes/mechanics") ?? "", @"""misfirePercent""\s*:\s*(\d+)");
-            if (match.Success) _percent = Math.Max(0, Math.Min(100, int.Parse(match.Groups[1].Value)));
+            var json = RequestHandler.GetJson("/ppes/mechanics") ?? "";
+            _kollontay = Read(json, "kollontayJam", _kollontay);
+            _vengeful = Read(json, "vengefulJam", _vengeful);
         }
         catch
         {
             // server without the setting: keep the last value, stock at first
         }
-        return _percent;
+    }
+
+    private static int Read(string json, string key, int fallback)
+    {
+        var match = Regex.Match(json, "\"" + key + @"""\s*:\s*(\d+)");
+        return match.Success ? Math.Max(0, Math.Min(100, int.Parse(match.Groups[1].Value))) : fallback;
     }
 
     private static bool AddMisfirePrefix(ref float? workTime)
     {
-        var percent = Percent();
+        Refresh();
+        var percent = _kollontay;
         if (percent >= 100) return true;
         if (percent <= 0 || workTime is not { } time) return percent > 0;
         workTime = time * percent / 100f;
@@ -85,7 +93,8 @@ internal static class BossMisfire
 
     private static bool DoEventPrefix(ActiveHealthController __instance)
     {
-        var percent = Percent();
+        Refresh();
+        var percent = _vengeful;
         if (percent >= 100) return true;
         // keep the panic, replace the permanent misfire
         __instance.AddEffect<ActiveHealthController.PanicEffect>(EBodyPart.Head, 0f);

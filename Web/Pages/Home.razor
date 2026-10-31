@@ -140,15 +140,6 @@
                                         <span>@T(part.Pt, part.En)</span>
                                     </label>
                                 }
-                                @if (s.Id == "halloween")
-                                {
-                                    <label class="ppes-part" title="@T("Quanto tempo as travas de arma do Kollontay e do Zryachiy Vingativo duram, em % do normal. 0 desliga. Precisa do plugin do cliente.", "How long Kollontay's and Vengeful Zryachiy's weapon jams last, in percent of stock. 0 turns them off. Needs the client plugin.")">
-                                        <span>@T("Travas de arma dos chefes:", "Boss weapon jams:")</span>
-                                        <input class="ppes-input ppes-number" type="number" min="0" max="100" aria-label="@T("Travas de arma, porcentagem", "Weapon jams, percent")"
-                                               value="@working.Halloween.MisfirePercent" @onchange="@(e => working.Halloween.MisfirePercent = Math.Clamp(int.TryParse(e.Value?.ToString(), out var n) ? n : 100, 0, 100))" />
-                                        <span>%</span>
-                                    </label>
-                                }
                             </div>
                         }
                         <div class="ppes-card-foot">
@@ -162,6 +153,27 @@
 
         @* ---------- presets, rotation, message ---------- *@
         <section class="ppes-tools">
+            <MudPaper Elevation="0" Class="ppes-panel spt-panel">
+                <div class="ppes-panel-head">
+                    <MudIcon Icon="@Icons.Material.Filled.Tune" Class="ppes-accent" />
+                    <MudText Typo="Typo.h6">@T("Mecânicas", "Mechanics")</MudText>
+                </div>
+                <MudText Typo="Typo.body2" Class="spt-muted">@T("Duração em % do normal (0 desliga). Precisa do plugin do cliente e vale no próximo raide.", "Length in percent of stock (0 turns it off). Needs the client plugin and applies from the next raid.")</MudText>
+                <div class="ppes-inline-form">
+                    <span class="ppes-label">@T("Trava de arma do Kollontay:", "Kollontay weapon jam:")</span>
+                    <input class="ppes-input ppes-number" type="number" min="0" max="100" aria-label="@T("Trava do Kollontay, porcentagem", "Kollontay jam, percent")"
+                           value="@working.Mechanics.KollontayJam" @onchange="@(e => working.Mechanics.KollontayJam = Math.Clamp(int.TryParse(e.Value?.ToString(), out var n) ? n : 100, 0, 100))" />
+                    <span class="ppes-label">%</span>
+                    <span class="ppes-hint">@T("Sempre: ele é um chefe normal de Streets, com ou sem evento.", "Always: he is a regular Streets boss, with or without an event.")</span>
+                </div>
+                <div class="ppes-inline-form">
+                    <span class="ppes-label">@T("Trava de arma do Zryachiy Vingativo:", "Vengeful Zryachiy weapon jam:")</span>
+                    <input class="ppes-input ppes-number" type="number" min="0" max="100" aria-label="@T("Trava do Zryachiy Vingativo, porcentagem", "Vengeful Zryachiy jam, percent")"
+                           value="@working.Mechanics.VengefulJam" @onchange="@(e => working.Mechanics.VengefulJam = Math.Clamp(int.TryParse(e.Value?.ToString(), out var n) ? n : 100, 0, 100))" />
+                    <span class="ppes-label">%</span>
+                    <span class="ppes-hint">@T("Só no Halloween com a parte do ritual ligada, que é quando ele aparece.", "Only in Halloween with the ritual part on, which is when he appears.")</span>
+                </div>
+            </MudPaper>
             <MudPaper Elevation="0" Class="ppes-panel spt-panel">
                 <div class="ppes-panel-head">
                     <MudIcon Icon="@Icons.Material.Filled.Bookmarks" Class="ppes-accent" />
@@ -515,7 +527,8 @@
         || working.TraderMessage != Config.Saved.TraderMessage
         || !working.Halloween.SameAs(Config.Saved.Halloween)
         || !working.Christmas.SameAs(Config.Saved.Christmas)
-        || !working.AprilFools.SameAs(Config.Saved.AprilFools);
+        || !working.AprilFools.SameAs(Config.Saved.AprilFools)
+        || !working.Mechanics.SameAs(Config.Saved.Mechanics);
 
     private sealed record PartDef(string Key, string Pt, string En, string PtHint, string EnHint);
 

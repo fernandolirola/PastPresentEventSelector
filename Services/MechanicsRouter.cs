@@ -10,5 +10,5 @@ namespace PPES.Services;
 public sealed class MechanicsRouter(JsonUtil jsonUtil, ConfigService config) : StaticRouter(jsonUtil,
 [
     new RouteAction<EmptyRequestData>("/ppes/mechanics", (_, _, _, _, _) =>
-        new ValueTask<string>($"{{\"misfirePercent\":{config.Saved.Halloween.MisfirePercent}}}")),
+        new ValueTask<string>($"{{\"kollontayJam\":{config.Saved.Mechanics.KollontayJam},\"vengefulJam\":{config.Saved.Mechanics.VengefulJam}}}")),
 ]);
