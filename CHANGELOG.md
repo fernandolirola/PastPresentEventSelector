@@ -3,7 +3,7 @@
 ## 1.7.0
 
 - **Zombie reinforcement waves:** optional Halloween setting continues spawning infected through the raid instead of stopping after the stock finite schedule. Wave size and interval have editable minimum and maximum values; differing values randomize every wave, along with infected type and zone.
-- **MoreBotsAPI with ABPS:** the client now gives ABPS adaptive headroom for the peak number of active MoreBotsAPI custom roles, so initial custom factions do not consume the slots reserved for later Scav and custom waves. It also guards MoreBotsAPI 2.1.1's global bot-created callback when another mod creates a bot without a spawn ID, preventing that exception from interrupting the foreign spawn.
+- **MoreBotsAPI with ABPS:** PPES now preserves registered custom-faction spawn entries when ABPS replaces the map lists at startup and after every raid. The client also gives ABPS adaptive headroom for the peak number of active MoreBotsAPI custom roles, so initial custom factions do not consume the slots reserved for later Scav and custom waves. It guards MoreBotsAPI 2.1.1's global bot-created callback when another mod creates a bot without a spawn ID, preventing that exception from interrupting the foreign spawn.
 - **Built-in event factions:** Cleanup Crew, Smugglers, Pillagers, Gus and Basmach no longer require MoreBotsAPI. PPES now registers only its own bot roles, hostility and optional SAIN support, without a global bot or wave controller.
 - **Halloween page:** shows whether zombie spawning is actually on, explains which option enabled it and displays option descriptions and dependencies directly in the card.
 
