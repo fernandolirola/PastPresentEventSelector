@@ -336,8 +336,7 @@ public static class EventCatalog
                     Effects.AddGroup(ctx, FactionCatalog.CleanupCrew, "2,3", "ZoneBrokenVill", 100);
                 }
             },
-            Group: "goons",
-            Needs: new(ModRequirements.MoreBots, "the Cleanup Crew", "a Cleanup Crew")),
+            Group: "goons"),
 
         new("fullSpeedAhead", "Full Speed Ahead", "May 2026", EventTag.Simulated,
             "Rogues patrol Shoreline and Reserve, Glukhar is in every Reserve raid and the Goons only roam Shoreline, from the gas station to the power station. Unlocks the recreated quest chain No Smoke Without Fire.",
@@ -371,8 +370,7 @@ public static class EventCatalog
                 ctx.AddFrom("interchange", "bossKilla", "BotZone", 100);
                 if (Effects.AddGroup(ctx, FactionCatalog.CleanupCrew, "2,3", "BotZone", 100, groups: 2))
                     ctx.Location.Waves?.RemoveAll(w => w.WildSpawnType == WildSpawnType.assault);
-            },
-            Needs: new(ModRequirements.MoreBots, "the Cleanup Crew (the Scavs stay)", "a Cleanup Crew (os Scavs continuam)")),
+            }),
 
         new("reshalaVsGlukhar", "Reshala vs Glukhar", "May 2026", EventTag.Simulated,
             "Reshala is in every Customs raid and Glukhar moves from Reserve to Customs to fight him.",
@@ -394,12 +392,11 @@ public static class EventCatalog
             OnRaid: ctx =>
             {
                 if (ctx.Is(PillagerMaps)) Effects.AddFactionGroup(ctx, FactionCatalog.Pillager, "2,3");
-            },
-            Needs: new(ModRequirements.MoreBots)),
+            }),
 
         new("smugglers2026", "Smugglers (2026)", "Mar 2026", EventTag.Simulated,
-            "Smugglers come back in groups of 3 or 4 on Customs, Woods, Shoreline, Interchange, Lighthouse, Streets and Ground Zero 21+, every Scav boss is on Reserve and airdrops carry sealed weapon cases. Unlocks the quest chain Bulldogs Under The Rug (recreated, it needs MoreBotsAPI). The flare-called drops are not included.",
-            "Os Smugglers voltam em grupos de 3 ou 4 na Customs, Woods, Shoreline, Interchange, Lighthouse, Streets e Ground Zero 21+, todo chefe Scav aparece na Reserve e os airdrops trazem caixas lacradas de armas. Libera a cadeia de quests Bulldogs Under The Rug (recriada, precisa do MoreBotsAPI). Os airdrops chamados com sinalizador não estão incluídos.",
+            "Smugglers come back in groups of 3 or 4 on Customs, Woods, Shoreline, Interchange, Lighthouse, Streets and Ground Zero 21+, every Scav boss is on Reserve and airdrops carry sealed weapon cases. Unlocks the recreated quest chain Bulldogs Under The Rug. The flare-called drops are not included.",
+            "Os Smugglers voltam em grupos de 3 ou 4 na Customs, Woods, Shoreline, Interchange, Lighthouse, Streets e Ground Zero 21+, todo chefe Scav aparece na Reserve e os airdrops trazem caixas lacradas de armas. Libera a cadeia de quests recriada Bulldogs Under The Rug. Os airdrops chamados com sinalizador não estão incluídos.",
             [],
             OnLoad: ctx => Effects.EnsureWeaponCrates(ctx, 1, 2),
             OnRaid: ctx =>
@@ -407,8 +404,7 @@ public static class EventCatalog
                 if (ctx.Is(Smugglers2026Maps)) Effects.AddFactionGroup(ctx, FactionCatalog.Smuggler, "2,3");
                 if (ctx.Is("rezervbase")) Effects.GatherScavBosses(ctx, "rezervbase", ReserveZones);
             },
-            Group: "smugglers",
-            Needs: new(ModRequirements.MoreBots, "the Smugglers and their quests", "os Smugglers e as quests deles")),
+            Group: "smugglers"),
 
         new("permanentBossPresence", "Permanent Boss Presence", "2023 to 2026", EventTag.Simulated,
             "Every boss spawns on its own maps in every raid (Partisan keeps his own rules). Also unlocks the quest Hint.",
@@ -447,15 +443,14 @@ public static class EventCatalog
             }),
 
         new("smugglers2024", "Smugglers (2024)", "Dec 2024", EventTag.Simulated,
-            "Smugglers, a new enemy faction, show up in groups of 3 on every map except Ground Zero for low levels and the Lab, carrying locked cases, case keys and contraband. Unlocks the quest chain That’s a Great Plan, Walter (recreated, it needs MoreBotsAPI).",
-            "Os Smugglers, uma facção inimiga nova, aparecem em grupos de 3 em todo mapa, menos o Ground Zero de nível baixo e a Lab, levando maletas trancadas, chaves de maleta e contrabando. Libera a cadeia de quests That’s a Great Plan, Walter (recriada, precisa do MoreBotsAPI).",
+            "Smugglers, a new enemy faction, show up in groups of 3 on every map except Ground Zero for low levels and the Lab, carrying locked cases, case keys and contraband. Unlocks the recreated quest chain That’s a Great Plan, Walter.",
+            "Os Smugglers, uma facção inimiga nova, aparecem em grupos de 3 em todo mapa, menos o Ground Zero de nível baixo e a Lab, levando maletas trancadas, chaves de maleta e contrabando. Libera a cadeia de quests recriada That’s a Great Plan, Walter.",
             [],
             OnRaid: ctx =>
             {
                 if (ctx.Is(Smugglers2024Maps)) Effects.AddFactionGroup(ctx, FactionCatalog.Smuggler, "2");
             },
-            Group: "smugglers",
-            Needs: new(ModRequirements.MoreBots)),
+            Group: "smugglers"),
 
         new("mortarStrike", "Mortar Strike", "Sep 2024", EventTag.Experimental,
             "Mortar barrages hit Customs, Woods, Shoreline and Reserve, with a special airdrop carrying radar parts. Unlocks the quest Into the Inferno.",
@@ -485,8 +480,7 @@ public static class EventCatalog
                 foreach (var dealer in new[] { FactionCatalog.Gus, FactionCatalog.Basmach })
                     if (Effects.AddGroup(ctx, dealer, "2", FactionZones["tarkovstreets"], 100))
                         ctx.Location.BossLocationSpawn!.Last().BossEscortType = "followerKolontaySecurity";
-            },
-            Needs: new(ModRequirements.MoreBots, "Gus and Basmach on Streets and their quests", "Gus e Basmach na Streets e as quests deles")),
+            }),
 
         new("keyToSalvation", "A Key to Salvation", "Jun 2024", EventTag.Ready,
             "Unlocks the quest A Key to Salvation.",

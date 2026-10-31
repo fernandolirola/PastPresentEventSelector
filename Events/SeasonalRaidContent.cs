@@ -1,4 +1,5 @@
 using PPES.Services;
+using PPES.Models;
 using SPTarkov.Server.Core.Models.Eft.Common;
 using SPTarkov.Server.Core.Models.Spt.Config;
 using SPTarkov.Server.Core.Utils.Cloners;
@@ -21,6 +22,48 @@ public static class SeasonalRaidContent
         if (registry.Santa) AddSanta(ctx, seasonalConfig);
         else if (registry.RemoveSanta) ctx.Location.BossLocationSpawn.RemoveAll(b => b.BossName == "gifter");
         if (registry.StopDancingTree) StopDancingTree(ctx.Location);
+    }
+
+    public static int AddZombieWaves(RaidContext ctx, SeasonalBossRegistry registry, HalloweenParts settings, ICloner cloner)
+    {
+        if (!registry.ZombiesActive || !settings.ZombieWaves || ctx.Location.BossLocationSpawn is not { } spawns) return 0;
+        var templates = spawns
+            .Where(b => b.BossName?.StartsWith("infected", StringComparison.OrdinalIgnoreCase) == true)
+            .Where(b => !string.Equals(b.BossName, "infectedTagilla", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        if (templates.Length == 0) return 0;
+
+        var raidSeconds = (int)Math.Round((ctx.Location.EscapeTimeLimit ?? 0) * 60);
+        var lastWave = raidSeconds - 2 * 60;
+        var intervalMin = Math.Clamp(settings.ZombieWaveIntervalMin, 1, 30);
+        var intervalMax = Math.Clamp(settings.ZombieWaveIntervalMax, intervalMin, 30);
+        var sizeMin = Math.Clamp(settings.ZombieWaveSizeMin, 1, 20);
+        var sizeMax = Math.Clamp(settings.ZombieWaveSizeMax, sizeMin, 20);
+        var time = Random.Shared.Next(intervalMin, intervalMax + 1) * 60;
+        if (lastWave < time) return 0;
+        var added = 0;
+        while (time <= lastWave)
+        {
+            var waveSize = Random.Shared.Next(sizeMin, sizeMax + 1);
+            for (var member = 0; member < waveSize; member++)
+            {
+                var spawn = cloner.Clone(templates[Random.Shared.Next(templates.Length)])!;
+                spawn.BossChance = 100;
+                spawn.BossEscortAmount = "0";
+                spawn.Supports = [];
+                spawn.Time = time;
+                spawn.TriggerId = "";
+                spawn.TriggerName = "";
+                spawn.Delay = 0;
+                spawn.IsRandomTimeSpawn = false;
+                spawn.ForceSpawn = true;
+                spawn.IgnoreMaxBots = true;
+                spawns.Add(spawn);
+            }
+            added += waveSize;
+            time += Random.Shared.Next(intervalMin, intervalMax + 1) * 60;
+        }
+        return added;
     }
 
     /// <summary>Same rule as SPT's AddEventBossesToMaps: a boss is added only when the map does not have it yet.</summary>

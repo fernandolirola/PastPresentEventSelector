@@ -48,7 +48,10 @@ public sealed class RaidLocationPatch : AbstractPatch
 
         var ctx = new RaidContext(__result, name.ToLowerInvariant(), _locations, _cloner);
         if (_seasonalBosses is not null && _seasonalConfig is not null)
+        {
             SeasonalRaidContent.Apply(ctx, _seasonalBosses, _seasonalConfig, _cloner);
+            SeasonalRaidContent.AddZombieWaves(ctx, _seasonalBosses, _config.Saved.Halloween, _cloner);
+        }
         // each generated location is a raid starting, which the "every N raids" rotation counts
         EventSchedule.CountRaid(_config);
         foreach (var id in EventSchedule.RaidEvents(_config.Saved, DateTimeOffset.Now.DateTime))

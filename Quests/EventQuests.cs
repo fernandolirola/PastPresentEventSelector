@@ -91,7 +91,7 @@ public sealed class EventQuests(
             AddLocales(json.Deserialize<Dictionary<string, Dictionary<string, string>>>(Resource("eventLocales.json"))!, meta.Aliases);
             UnlockRecipesWith(Walter);
             AddFactionLoot();
-            // a mod that adds its boss after MoreBotsAPI loads bots is only in the table by now
+            // optional mods that add bosses have loaded their bot records by now
             ModRequirements.ScourgeLoaded |= botTable.Types.ContainsKey(ModRequirements.ScourgeBoss.ToLowerInvariant());
             if (inventoryConfig.RandomLootContainers.TryGetValue(OpenedCase, out var opened) && opened.RewardTplPool is { } pool)
                 pool[Contraband] = pool.Values.DefaultIfEmpty(1).Sum();

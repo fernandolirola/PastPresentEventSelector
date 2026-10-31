@@ -1,63 +1,50 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using BepInEx.Logging;
 using Mono.Cecil;
-using MoreBotsAPI;
 
 namespace PPES.Prepatch;
 
-/// <summary>
-/// BepInEx preloader patcher: adds the PPES factions to the game's bot type list through MoreBotsAPI,
-/// so the server can spawn them. The ids and names must match Factions/FactionCatalog.cs on the server.
-/// </summary>
+/// <summary>Adds PPES's five faction roles to the client enum before the game assembly loads.</summary>
 public static class FactionTypesPatch
 {
-    // MoreBotsAPI brain id for the PMC brain, the one Black Division also uses
-    private const int PmcBrain = 9;
-
-    private static readonly List<int> NormalOnly = new List<int> { 0, 2, 3 };
+    private static readonly (int Id, string Name)[] Types =
+    {
+        (731001, "ppesCleanupCrew"),
+        (731002, "ppesSmuggler"),
+        (731003, "ppesPillager"),
+        (731004, "ppesGus"),
+        (731005, "ppesBasmach"),
+    };
 
     public static IEnumerable<string> TargetDLLs { get; } = new[] { "Assembly-CSharp.dll" };
 
     public static void Patch(ref AssemblyDefinition assembly)
     {
-        // MoreBotsAPI is optional: without it the factions are skipped and the rest of PPES still works
-        try
+        var type = assembly.MainModule.GetType("EFT.WildSpawnType")
+            ?? throw new InvalidOperationException("EFT.WildSpawnType was not found");
+        foreach (var custom in Types)
         {
-            RegisterAll(assembly);
-        }
-        catch (Exception ex)
-        {
-            Logger.CreateLogSource("PPES Prepatch").LogWarning($"MoreBotsAPI not found, PPES factions skipped ({ex.GetType().Name})");
+            if (HasNameOrValue(type, custom.Name, custom.Id))
+            {
+                Logger.CreateLogSource("PPES Prepatch").LogWarning($"Skipped duplicate bot role {custom.Name} ({custom.Id})");
+                continue;
+            }
+            type.Fields.Add(new FieldDefinition(custom.Name,
+                FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.Literal | FieldAttributes.HasDefault, type)
+            {
+                Constant = custom.Id,
+            });
         }
     }
 
-    // kept out of line so the MoreBotsAPI types are only resolved inside the try above
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void RegisterAll(AssemblyDefinition assembly)
+    private static bool HasNameOrValue(TypeDefinition type, string name, int value)
     {
-        Register(assembly, 731001, "ppesCleanupCrew", "PpesCleanupCrew");
-        Register(assembly, 731002, "ppesSmuggler", "PpesSmuggler");
-        Register(assembly, 731003, "ppesPillager", "PpesPillager");
-        Register(assembly, 731004, "ppesGus", "PpesGus");
-        Register(assembly, 731005, "ppesBasmach", "PpesBasmach");
-
-        // each faction groups only with its own members
-        CustomWildSpawnTypeManager.AddSuitableGroup(new List<int> { 731001 });
-        CustomWildSpawnTypeManager.AddSuitableGroup(new List<int> { 731002 });
-        CustomWildSpawnTypeManager.AddSuitableGroup(new List<int> { 731003 });
-        CustomWildSpawnTypeManager.AddSuitableGroup(new List<int> { 731004 });
-        CustomWildSpawnTypeManager.AddSuitableGroup(new List<int> { 731005 });
-    }
-
-    private static void Register(AssemblyDefinition assembly, int id, string name, string scavRole)
-    {
-        // boss and follower at once lets one type lead its group and fill the escort, as Black Division does
-        var type = new CustomWildSpawnType(id, name, scavRole, PmcBrain, true, true, false);
-        type.SetCountAsBossForStatistics(false);
-        type.SetShouldUseFenceNoBossAttack(false, false);
-        type.SetExcludedDifficulties(NormalOnly);
-        CustomWildSpawnTypeManager.RegisterWildSpawnType(type, assembly);
+        foreach (var field in type.Fields)
+        {
+            if (field.Name == name) return true;
+            if (field.HasConstant && field.Constant is int current && current == value) return true;
+        }
+        return false;
     }
 }

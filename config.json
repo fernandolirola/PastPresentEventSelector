@@ -12,6 +12,11 @@
   "halloween": {
     "ritual": true,
     "zombies": false,
+    "zombieWaves": false,
+    "zombieWaveSizeMin": 3,
+    "zombieWaveSizeMax": 3,
+    "zombieWaveIntervalMin": 5,
+    "zombieWaveIntervalMax": 5,
     "cultists": true,
     "labInfectedOnly": true,
     "freeLab": true,

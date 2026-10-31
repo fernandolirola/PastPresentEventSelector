@@ -103,6 +103,12 @@ public sealed class HalloweenParts
     public bool Ritual { get; set; } = true;
     /// <summary>Halloween 2024: infected and map infection. SPT ships it off.</summary>
     public bool Zombies { get; set; }
+    /// <summary>Adds configurable infected reinforcement waves after the stock finite schedule.</summary>
+    public bool ZombieWaves { get; set; }
+    public int ZombieWaveSizeMin { get; set; } = 3;
+    public int ZombieWaveSizeMax { get; set; } = 3;
+    public int ZombieWaveIntervalMin { get; set; } = 5;
+    public int ZombieWaveIntervalMax { get; set; } = 5;
     /// <summary>Halloween 2025: Oni, Harbinger and Ghost cultists.</summary>
     public bool Cultists { get; set; } = true;
     /// <summary>With zombies on, SPT clears the Lab's own bosses and raiders so only infected are left.</summary>
@@ -113,10 +119,19 @@ public sealed class HalloweenParts
     /// <summary>Pumpkins with sweets in containers, signal pistols and acid green flares on Scavs.</summary>
     public bool Loot { get; set; } = true;
 
-    public HalloweenParts Clone() => new() { Ritual = Ritual, Zombies = Zombies, Cultists = Cultists, LabInfectedOnly = LabInfectedOnly, FreeLab = FreeLab, Outbreak2026 = Outbreak2026, Loot = Loot };
+    public HalloweenParts Clone() => new()
+    {
+        Ritual = Ritual, Zombies = Zombies, ZombieWaves = ZombieWaves,
+        ZombieWaveSizeMin = ZombieWaveSizeMin, ZombieWaveSizeMax = ZombieWaveSizeMax,
+        ZombieWaveIntervalMin = ZombieWaveIntervalMin, ZombieWaveIntervalMax = ZombieWaveIntervalMax,
+        Cultists = Cultists, LabInfectedOnly = LabInfectedOnly, FreeLab = FreeLab, Outbreak2026 = Outbreak2026, Loot = Loot,
+    };
 
     public bool SameAs(HalloweenParts other) =>
-        Ritual == other.Ritual && Zombies == other.Zombies && Cultists == other.Cultists && LabInfectedOnly == other.LabInfectedOnly && FreeLab == other.FreeLab
+        Ritual == other.Ritual && Zombies == other.Zombies && ZombieWaves == other.ZombieWaves
+        && ZombieWaveSizeMin == other.ZombieWaveSizeMin && ZombieWaveSizeMax == other.ZombieWaveSizeMax
+        && ZombieWaveIntervalMin == other.ZombieWaveIntervalMin && ZombieWaveIntervalMax == other.ZombieWaveIntervalMax
+        && Cultists == other.Cultists && LabInfectedOnly == other.LabInfectedOnly && FreeLab == other.FreeLab
         && Outbreak2026 == other.Outbreak2026 && Loot == other.Loot;
 
     /// <summary>The 2026 outbreak needs the zombies, so it switches them on.</summary>

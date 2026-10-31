@@ -100,6 +100,10 @@ public sealed class ConfigService
         config.Seasonal = NormalizeSeasonal(config.Seasonal);
         config.Events = NormalizeEvents(config.Events);
         config.Halloween ??= new HalloweenParts();
+        config.Halloween.ZombieWaveSizeMin = Math.Clamp(config.Halloween.ZombieWaveSizeMin, 1, 20);
+        config.Halloween.ZombieWaveSizeMax = Math.Clamp(Math.Max(config.Halloween.ZombieWaveSizeMin, config.Halloween.ZombieWaveSizeMax), 1, 20);
+        config.Halloween.ZombieWaveIntervalMin = Math.Clamp(config.Halloween.ZombieWaveIntervalMin, 1, 30);
+        config.Halloween.ZombieWaveIntervalMax = Math.Clamp(Math.Max(config.Halloween.ZombieWaveIntervalMin, config.Halloween.ZombieWaveIntervalMax), 1, 30);
         config.Mechanics ??= new MechanicsSettings();
         var m = config.Mechanics;
         m.KollontayJam = Math.Clamp(Math.Round(m.KollontayJam, 1), 0, 600);

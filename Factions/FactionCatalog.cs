@@ -12,8 +12,7 @@ public sealed record FactionDef(
     string DescEn);
 
 /// <summary>
-/// The factions PPES adds through MoreBotsAPI. Ids, roles and scav roles must match client/Prepatch/FactionTypesPatch.cs,
-/// since the game only knows a bot type the prepatcher registered.
+/// PPES's built-in factions. Ids, roles and scav roles must match client/Prepatch/FactionTypesPatch.cs.
 /// </summary>
 public static class FactionCatalog
 {

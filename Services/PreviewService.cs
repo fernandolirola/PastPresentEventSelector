@@ -23,7 +23,7 @@ public sealed record RoleOption(string Role, string NameEn, string NamePt);
 /// what the next raid would look like. Works on unsaved picks too.
 /// </summary>
 [Injectable(InjectionType.Singleton)]
-public sealed class PreviewService(LocationTable locations, ICloner cloner, SeasonalBossRegistry seasonalBosses, SeasonalEventConfig seasonalConfig)
+public sealed class PreviewService(LocationTable locations, ICloner cloner, SeasonalBossRegistry seasonalBosses, SeasonalEventConfig seasonalConfig, ConfigService config)
 {
     // roles the editor offers to add; trigger-only and event-scripted roles (ritual, Santa's helpers) are left out
     private static readonly string[] Addable =
@@ -109,6 +109,7 @@ public sealed class PreviewService(LocationTable locations, ICloner cloner, Seas
         var ctx = new RaidContext(copy, mapId, locations, cloner);
         // seasonal bosses as the server runs them now; seasonal changes only apply after a restart
         SeasonalRaidContent.Apply(ctx, seasonalBosses, seasonalConfig, cloner);
+        SeasonalRaidContent.AddZombieWaves(ctx, seasonalBosses, config.Saved.Halloween, cloner);
         foreach (var id in events)
             EventCatalog.Past(id)?.OnRaid?.Invoke(ctx);
         var withEvents = Summarize(copy.BossLocationSpawn ?? []);

@@ -132,13 +132,50 @@
                         {
                             <div class="@($"ppes-parts {(active ? "" : "ppes-parts-off")}")">
                                 <span class="ppes-label">@PartsTitle(s.Id)</span>
+                                @if (s.Id == "halloween")
+                                {
+                                    <div class="@($"ppes-part-status {(working.Halloween.ZombiesOn ? "ppes-part-status-on" : "ppes-part-status-off")}")">
+                                        <strong>@(working.Halloween.ZombiesOn ? T("Aparecimento de zumbis: LIGADO", "Zombie spawning: ON") : T("Aparecimento de zumbis: DESLIGADO", "Zombie spawning: OFF"))</strong>
+                                        <span>@HalloweenZombieStatus()</span>
+                                    </div>
+                                }
                                 @foreach (var part in partList)
                                 {
                                     var partOn = GetPart(part.Key);
-                                    <label class="ppes-part" title="@T(part.PtHint, part.EnHint)">
+                                    var waitingForZombies = part.Key is "h.labonly" or "h.waves" && !working.Halloween.ZombiesOn;
+                                    <label class="@($"ppes-part {(waitingForZombies ? "ppes-part-waiting" : "")}")">
                                         <input type="checkbox" checked="@partOn" @onchange="@(e => SetPart(part.Key, e.Value is true))" />
-                                        <span>@T(part.Pt, part.En)</span>
+                                        <span class="ppes-part-copy">
+                                            <span class="ppes-part-name">@T(part.Pt, part.En)</span>
+                                            <span class="ppes-part-hint">@T(part.PtHint, part.EnHint)</span>
+                                            @if (waitingForZombies)
+                                            {
+                                                <span class="ppes-part-dependency">@T("Aguardando: ligue Zumbis e infectados ou Surto de 2026.", "Waiting: enable Zombies and infected or 2026 outbreak.")</span>
+                                            }
+                                        </span>
                                     </label>
+                                    @if (part.Key == "h.waves" && partOn)
+                                    {
+                                        <div class="ppes-wave-settings">
+                                            <span class="ppes-wave-title">@T("Aleatório quando o mínimo e o máximo são diferentes", "Random when minimum and maximum differ")</span>
+                                            <label>
+                                                <span>@T("Zumbis por onda", "Zombies per wave")</span>
+                                                <span class="ppes-wave-range">
+                                                    <input class="ppes-input ppes-number" type="number" min="1" max="20" value="@working.Halloween.ZombieWaveSizeMin" @onchange="@(e => SetZombieWaveNumber("sizeMin", e.Value?.ToString()))" />
+                                                    <span>@T("até", "to")</span>
+                                                    <input class="ppes-input ppes-number" type="number" min="1" max="20" value="@working.Halloween.ZombieWaveSizeMax" @onchange="@(e => SetZombieWaveNumber("sizeMax", e.Value?.ToString()))" />
+                                                </span>
+                                            </label>
+                                            <label>
+                                                <span>@T("Minutos entre ondas", "Minutes between waves")</span>
+                                                <span class="ppes-wave-range">
+                                                    <input class="ppes-input ppes-number" type="number" min="1" max="30" value="@working.Halloween.ZombieWaveIntervalMin" @onchange="@(e => SetZombieWaveNumber("intervalMin", e.Value?.ToString()))" />
+                                                    <span>@T("até", "to")</span>
+                                                    <input class="ppes-input ppes-number" type="number" min="1" max="30" value="@working.Halloween.ZombieWaveIntervalMax" @onchange="@(e => SetZombieWaveNumber("intervalMax", e.Value?.ToString()))" />
+                                                </span>
+                                            </label>
+                                        </div>
+                                    }
                                 }
                             </div>
                         }
@@ -595,6 +632,9 @@
         new("h.zombies", "Zumbis e infectados (2024)", "Zombies and infected (2024)",
             "Infectados nos mapas e a barra de infecção. O SPT deixa desligado por padrão porque fica muito difícil.",
             "Infected on the maps and the infection meter. SPT ships it off because it gets very hard."),
+        new("h.waves", "Ondas de reforço de zumbis", "Zombie reinforcement waves",
+            "Adiciona novas ondas até perto do fim do raide. Quantidade, intervalo, tipo de infectado e zona podem variar. Precisa que os zumbis estejam ligados.",
+            "Adds new waves until near the end of the raid. Count, interval, infected type and zone can vary. Requires zombies to be enabled."),
         new("h.cultists", "Noite dos cultistas (2025)", "Night of the cult (2025)",
             "Os cultistas especiais Oni, Harbinger e Ghost onde ficam os Goons.",
             "The special cultists Oni, Harbinger and Ghost where the Goons roam."),
@@ -648,6 +688,18 @@
         _ => T("Partes do Natal e Ano Novo:", "Christmas and New Year parts:"),
     };
 
+    private string HalloweenZombieStatus()
+    {
+        if (working.Halloween.Outbreak2026)
+            return T("Ligado pelo Surto de 2026. Os infectados aparecem em todos os mapas compatíveis.",
+                "Enabled by 2026 outbreak. Infected spawn on every supported map.");
+        if (working.Halloween.Zombies)
+            return T("Ligado por Zumbis e infectados (2024). Usa os mapas e as taxas de infecção do evento original.",
+                "Enabled by Zombies and infected (2024). Uses the original event maps and infection rates.");
+        return T("Ligar o Halloween não liga os zumbis sozinho. Marque Zumbis e infectados ou Surto de 2026 abaixo.",
+            "Turning on Halloween does not enable zombies by itself. Select Zombies and infected or 2026 outbreak below.");
+    }
+
     private static IReadOnlyList<PartDef> PartsOf(string seasonalId) => seasonalId switch
     {
         "halloween" => HalloweenPartList,
@@ -660,6 +712,7 @@
     {
         "h.ritual" => working.Halloween.Ritual,
         "h.zombies" => working.Halloween.Zombies,
+        "h.waves" => working.Halloween.ZombieWaves,
         "h.cultists" => working.Halloween.Cultists,
         "h.labonly" => working.Halloween.LabInfectedOnly,
         "h.freelab" => working.Halloween.FreeLab,
@@ -680,6 +733,7 @@
         {
             case "h.ritual": working.Halloween.Ritual = on; break;
             case "h.zombies": working.Halloween.Zombies = on; break;
+            case "h.waves": working.Halloween.ZombieWaves = on; break;
             case "h.cultists": working.Halloween.Cultists = on; break;
             case "h.labonly": working.Halloween.LabInfectedOnly = on; break;
             case "h.freelab": working.Halloween.FreeLab = on; break;
@@ -692,6 +746,18 @@
             case "c.hideout": working.Christmas.Hideout = on; break;
             case "c.khorovod": working.Christmas.Khorovod = on; break;
             default: working.Christmas.WinterClothes = on; break;
+        }
+    }
+
+    private void SetZombieWaveNumber(string key, string? raw)
+    {
+        if (!int.TryParse(raw, out var value)) return;
+        switch (key)
+        {
+            case "sizeMin": working.Halloween.ZombieWaveSizeMin = Math.Clamp(value, 1, 20); break;
+            case "sizeMax": working.Halloween.ZombieWaveSizeMax = Math.Clamp(value, 1, 20); break;
+            case "intervalMin": working.Halloween.ZombieWaveIntervalMin = Math.Clamp(value, 1, 30); break;
+            case "intervalMax": working.Halloween.ZombieWaveIntervalMax = Math.Clamp(value, 1, 30); break;
         }
     }
 

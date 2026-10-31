@@ -57,7 +57,9 @@ public sealed class SeasonalBossRegistry
     /// <summary>April Fools turns the summon event on without a setting; EventApplier switches it back off after SPT.</summary>
     public bool DisableSummonEvent { get; private set; }
 
-    internal void Set(List<SeasonalBossGroup> groups, bool santa, bool removeSanta, bool stopDancingTree, HashSet<string> infectedOnlyMaps, bool disableSummonEvent)
+    public bool ZombiesActive { get; private set; }
+
+    internal void Set(List<SeasonalBossGroup> groups, bool santa, bool removeSanta, bool stopDancingTree, HashSet<string> infectedOnlyMaps, bool disableSummonEvent, bool zombiesActive)
     {
         Groups = groups;
         Santa = santa;
@@ -65,6 +67,7 @@ public sealed class SeasonalBossRegistry
         StopDancingTree = stopDancingTree;
         InfectedOnlyMaps = infectedOnlyMaps;
         DisableSummonEvent = disableSummonEvent;
+        ZombiesActive = zombiesActive;
     }
 }
 
@@ -157,10 +160,11 @@ public sealed class SeasonalApplier(
             aprilOn && !santa,
             winterOn && !christmas.Khorovod,
             halloweenOn && halloween.ZombiesOn && halloween.LabInfectedOnly ? ZombieOnlyMaps(events) : [],
-            aprilOn && !summonWanted);
+            aprilOn && !summonWanted,
+            halloweenOn && halloween.ZombiesOn);
 
         if (halloweenOn)
-            summary.Add($"Halloween parts: ritual {OnOff(halloween.Ritual)}, zombies {OnOff(halloween.ZombiesOn)}, cultists {OnOff(halloween.Cultists)}, Lab infected only {OnOff(halloween.LabInfectedOnly)}, free Lab {OnOff(halloween.FreeLab)}, 2026 outbreak {OnOff(halloween.Outbreak2026)}, loot {OnOff(halloween.Loot)}");
+            summary.Add($"Halloween parts: ritual {OnOff(halloween.Ritual)}, zombies {OnOff(halloween.ZombiesOn)}, zombie waves {WaveSummary(halloween)}, cultists {OnOff(halloween.Cultists)}, Lab infected only {OnOff(halloween.LabInfectedOnly)}, free Lab {OnOff(halloween.FreeLab)}, 2026 outbreak {OnOff(halloween.Outbreak2026)}, loot {OnOff(halloween.Loot)}");
         if (winterOn)
             summary.Add($"Christmas parts: Santa {OnOff(christmas.Santa)}, hideout {OnOff(christmas.Hideout)}, Khorovod {OnOff(christmas.Khorovod)}, winter clothes {OnOff(christmas.WinterClothes)}");
         if (aprilOn)
@@ -175,6 +179,10 @@ public sealed class SeasonalApplier(
     }
 
     private static string OnOff(bool on) => on ? "on" : "off";
+
+    private static string WaveSummary(HalloweenParts halloween) => halloween.ZombieWaves
+        ? $"on ({halloween.ZombieWaveSizeMin}-{halloween.ZombieWaveSizeMax} bots every {halloween.ZombieWaveIntervalMin}-{halloween.ZombieWaveIntervalMax} min)"
+        : "off";
 
     private void EmptyGroup(string key)
     {
