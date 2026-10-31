@@ -158,21 +158,19 @@
                     <MudIcon Icon="@Icons.Material.Filled.Tune" Class="ppes-accent" />
                     <MudText Typo="Typo.h6">@T("Mecânicas", "Mechanics")</MudText>
                 </div>
-                <MudText Typo="Typo.body2" Class="spt-muted">@T("Duração em % do normal (0 desliga). Precisa do plugin do cliente e vale no próximo raide.", "Length in percent of stock (0 turns it off). Needs the client plugin and applies from the next raid.")</MudText>
-                <div class="ppes-inline-form">
-                    <span class="ppes-label">@T("Trava de arma do Kollontay:", "Kollontay weapon jam:")</span>
-                    <input class="ppes-input ppes-number" type="number" min="0" max="100" aria-label="@T("Trava do Kollontay, porcentagem", "Kollontay jam, percent")"
-                           value="@working.Mechanics.KollontayJam" @onchange="@(e => working.Mechanics.KollontayJam = Math.Clamp(int.TryParse(e.Value?.ToString(), out var n) ? n : 100, 0, 100))" />
-                    <span class="ppes-label">%</span>
-                    <span class="ppes-hint">@T("Sempre: ele é um chefe normal de Streets, com ou sem evento.", "Always: he is a regular Streets boss, with or without an event.")</span>
-                </div>
-                <div class="ppes-inline-form">
-                    <span class="ppes-label">@T("Trava de arma do Zryachiy Vingativo:", "Vengeful Zryachiy weapon jam:")</span>
-                    <input class="ppes-input ppes-number" type="number" min="0" max="100" aria-label="@T("Trava do Zryachiy Vingativo, porcentagem", "Vengeful Zryachiy jam, percent")"
-                           value="@working.Mechanics.VengefulJam" @onchange="@(e => working.Mechanics.VengefulJam = Math.Clamp(int.TryParse(e.Value?.ToString(), out var n) ? n : 100, 0, 100))" />
-                    <span class="ppes-label">%</span>
-                    <span class="ppes-hint">@T("Só no Halloween com a parte do ritual ligada, que é quando ele aparece.", "Only in Halloween with the ritual part on, which is when he appears.")</span>
-                </div>
+                <MudText Typo="Typo.body2" Class="spt-muted">@T("Valores exatos; o padrão é o do jogo. As travas valem no próximo raide e precisam do plugin do cliente. O resto precisa reiniciar o servidor.", "Exact values; the default is the game's. Jams apply from the next raid and need the client plugin. The rest need a server restart.")</MudText>
+                @foreach (var row in MechanicRows)
+                {
+                    <div class="ppes-mech">
+                        <span class="ppes-label">@T(row.Pt, row.En) <span class="ppes-tag">@T(row.ScopePt, row.ScopeEn)</span></span>
+                        <div class="ppes-mech-input">
+                            <input class="ppes-input ppes-number" type="number" min="@row.Min" max="@row.Max" step="@row.Step" aria-label="@T(row.Pt, row.En)"
+                                   value="@MechValue(row.Key)" @onchange="@(e => SetMech(row.Key, e.Value?.ToString()))" />
+                            <span>@row.Unit</span>
+                        </div>
+                        <span class="ppes-hint">@T(row.HintPt, row.HintEn)</span>
+                    </div>
+                }
             </MudPaper>
             <MudPaper Elevation="0" Class="ppes-panel spt-panel">
                 <div class="ppes-panel-head">
@@ -529,6 +527,48 @@
         || !working.Christmas.SameAs(Config.Saved.Christmas)
         || !working.AprilFools.SameAs(Config.Saved.AprilFools)
         || !working.Mechanics.SameAs(Config.Saved.Mechanics);
+
+    private sealed record MechRow(string Key, string Pt, string En, string ScopePt, string ScopeEn, string Unit, double Min, double Max, double Step, string HintPt, string HintEn);
+
+    private static readonly IReadOnlyList<MechRow> MechanicRows =
+    [
+        new("kollontay", "Trava de arma do Kollontay", "Kollontay weapon jam", "sempre", "always", "s", 0, 600, 0.5,
+            "Padrão 5 s. 0 desliga. Ele é um chefe normal de Streets, com ou sem evento.", "Default 5 s. 0 turns it off. He is a regular Streets boss, with or without an event."),
+        new("vengeful", "Trava de arma do Zryachiy Vingativo", "Vengeful Zryachiy weapon jam", "Halloween com ritual", "Halloween with ritual", "s", -1, 3600, 1,
+            "Padrão -1: não acaba nunca. 0 desliga a trava (o pânico fica). Qualquer outro valor é a duração.", "Default -1: never ends. 0 turns the jam off (the panic stays). Any other value is the length."),
+        new("exit", "Tempo de saída no ritual", "Ritual extract time", "Halloween com ritual", "Halloween with ritual", "x", 0.1, 20, 0.1,
+            "Padrão 3: as saídas demoram 3 vezes mais durante o ritual.", "Default 3: extracts take 3 times longer during the ritual."),
+        new("stamina", "Gasto de vigor no ritual", "Ritual stamina drain", "Halloween com ritual", "Halloween with ritual", "x", 0.1, 20, 0.1,
+            "Padrão 3: o vigor gasta 3 vezes mais rápido durante o ritual.", "Default 3: stamina drains 3 times faster during the ritual."),
+        new("hydration", "Toxina: desidratação", "Toxin: dehydration", "zumbis", "zombies", "/s", 0, 100, 0.5,
+            "Padrão 10: hidratação perdida por segundo depois de ser infectado.", "Default 10: hydration lost per second after being infected."),
+        new("hearing", "Toxina: perda de audição", "Toxin: hearing loss", "zumbis", "zombies", "%", 0, 100, 1,
+            "Padrão 33: quanto da audição se perde ao ser infectado.", "Default 33: how much hearing is lost when infected."),
+    ];
+
+    private string MechValue(string key) => (key switch
+    {
+        "kollontay" => working.Mechanics.KollontayJam,
+        "vengeful" => working.Mechanics.VengefulJam,
+        "exit" => working.Mechanics.RitualExitTime,
+        "stamina" => working.Mechanics.RitualStamina,
+        "hydration" => working.Mechanics.ToxinHydration,
+        _ => working.Mechanics.ToxinHearing,
+    }).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private void SetMech(string key, string? text)
+    {
+        if (!double.TryParse(text?.Replace(',', '.'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)) return;
+        switch (key)
+        {
+            case "kollontay": working.Mechanics.KollontayJam = Math.Clamp(v, 0, 600); break;
+            case "vengeful": working.Mechanics.VengefulJam = v < 0 ? -1 : Math.Clamp(v, 0, 3600); break;
+            case "exit": working.Mechanics.RitualExitTime = Math.Clamp(v, 0.1, 20); break;
+            case "stamina": working.Mechanics.RitualStamina = Math.Clamp(v, 0.1, 20); break;
+            case "hydration": working.Mechanics.ToxinHydration = Math.Clamp(v, 0, 100); break;
+            default: working.Mechanics.ToxinHearing = Math.Clamp(v, 0, 100); break;
+        }
+    }
 
     private sealed record PartDef(string Key, string Pt, string En, string PtHint, string EnHint);
 

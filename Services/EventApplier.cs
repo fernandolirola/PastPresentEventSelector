@@ -1,4 +1,5 @@
 using PPES.Events;
+using PPES.Models;
 using PPES.Patches;
 using SPTarkov.Common.Models.Logging;
 using SPTarkov.DI.Annotations;
@@ -27,6 +28,22 @@ public sealed class EventApplier(
     ICloner cloner,
     ISptLogger<EventApplier> logger) : IOnLoad
 {
+    /// <summary>Only values that differ from the game's are written, so another mod's change stays when nothing was asked.</summary>
+    private void ApplyMechanics(MechanicsSettings m)
+    {
+        var defaults = new MechanicsSettings();
+        if (globals.Configuration?.EventSettings is { } ritual)
+        {
+            if (m.RitualExitTime != defaults.RitualExitTime) ritual.ExitTimeMultiplier = m.RitualExitTime;
+            if (m.RitualStamina != defaults.RitualStamina) ritual.StaminaMultiplier = m.RitualStamina;
+        }
+        if (globals.Configuration?.Health?.Effects?.ZombieInfection is { } toxin)
+        {
+            if (m.ToxinHydration != defaults.ToxinHydration) toxin.Dehydration = m.ToxinHydration;
+            if (m.ToxinHearing != defaults.ToxinHearing) toxin.HearingDebuffPercentage = m.ToxinHearing / 100;
+        }
+    }
+
     public Task OnLoadAsync(CancellationToken cancellationToken)
     {
         config.MarkApplied();
@@ -53,6 +70,8 @@ public sealed class EventApplier(
 
         if (seasonalBosses.DisableSummonEvent && globals.Configuration?.EventSettings is { } eventSettings)
             eventSettings.EventActive = false;
+
+        ApplyMechanics(config.Saved.Mechanics);
 
         RaidLocationPatch.Init(config, locations, cloner, logger, seasonalBosses, seasonalConfig);
         new RaidLocationPatch().Enable();

@@ -101,8 +101,13 @@ public sealed class ConfigService
         config.Events = NormalizeEvents(config.Events);
         config.Halloween ??= new HalloweenParts();
         config.Mechanics ??= new MechanicsSettings();
-        config.Mechanics.KollontayJam = Math.Clamp(config.Mechanics.KollontayJam, 0, 100);
-        config.Mechanics.VengefulJam = Math.Clamp(config.Mechanics.VengefulJam, 0, 100);
+        var m = config.Mechanics;
+        m.KollontayJam = Math.Clamp(Math.Round(m.KollontayJam, 1), 0, 600);
+        m.VengefulJam = m.VengefulJam < 0 ? -1 : Math.Clamp(Math.Round(m.VengefulJam, 1), 0, 3600);
+        m.RitualExitTime = Math.Clamp(Math.Round(m.RitualExitTime, 2), 0.1, 20);
+        m.RitualStamina = Math.Clamp(Math.Round(m.RitualStamina, 2), 0.1, 20);
+        m.ToxinHydration = Math.Clamp(Math.Round(m.ToxinHydration, 1), 0, 100);
+        m.ToxinHearing = Math.Clamp(Math.Round(m.ToxinHearing, 0), 0, 100);
         config.Christmas ??= new ChristmasParts();
         config.AprilFools ??= new AprilFoolsParts();
         config.Rotation ??= new RotationSettings();

@@ -40,15 +40,15 @@ public class Plugin : BaseUnityPlugin
 }
 
 /// <summary>
-/// Kollontay and Vengeful Zryachiy jam the player's weapon through the game's misfire effect. The page sets how long it
-/// lasts in percent of stock; the server hands the value out at /ppes/mechanics and it is re-read every half minute.
+/// Kollontay and Vengeful Zryachiy jam the player's weapon through the game's misfire effect. The page sets how many
+/// seconds it lasts; the server hands the values out at /ppes/mechanics and they are re-read every half minute.
 /// </summary>
 internal static class BossMisfire
 {
-    // stock Vengeful Zryachiy misfire has no timer; 100 percent keeps that, lower values become a timed jam of this length
-    private const float TimedSecondsAtFull = 300f;
-    private static int _kollontay = 100;
-    private static int _vengeful = 100;
+    // Kollontay applies 5 s; other callers (map triggers) pass their own time and are left alone
+    private const float KollontayStock = 5f;
+    private static float _kollontay = KollontayStock;
+    private static float _vengeful = -1f;
     private static float _readAt = -100f;
 
     public static void Enable(Harmony harmony)
@@ -75,30 +75,28 @@ internal static class BossMisfire
         }
     }
 
-    private static int Read(string json, string key, int fallback)
+    private static float Read(string json, string key, float fallback)
     {
-        var match = Regex.Match(json, "\"" + key + @"""\s*:\s*(\d+)");
-        return match.Success ? Math.Max(0, Math.Min(100, int.Parse(match.Groups[1].Value))) : fallback;
+        var match = Regex.Match(json, "\"" + key + "\"\\s*:\\s*(-?[\\d.]+)");
+        return match.Success && float.TryParse(match.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) ? value : fallback;
     }
 
     private static bool AddMisfirePrefix(ref float? workTime)
     {
         Refresh();
-        var percent = _kollontay;
-        if (percent >= 100) return true;
-        if (percent <= 0 || workTime is not { } time) return percent > 0;
-        workTime = time * percent / 100f;
+        if (workTime != KollontayStock) return true;
+        if (_kollontay <= 0f) return false;
+        workTime = _kollontay;
         return true;
     }
 
     private static bool DoEventPrefix(ActiveHealthController __instance)
     {
         Refresh();
-        var percent = _vengeful;
-        if (percent >= 100) return true;
-        // keep the panic, replace the permanent misfire
+        if (_vengeful < 0f) return true;
+        // keep the panic, replace the jam that never ends
         __instance.AddEffect<ActiveHealthController.PanicEffect>(EBodyPart.Head, 0f);
-        if (percent > 0) __instance.AddMisfireEffect(TimedSecondsAtFull * percent / 100f);
+        if (_vengeful > 0f) __instance.AddMisfireEffect(_vengeful);
         return false;
     }
 }

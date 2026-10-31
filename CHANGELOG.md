@@ -2,7 +2,11 @@
 
 ## 1.6.0
 
-- **Mechanics panel:** two new settings set how long the weapon jams from bosses last, in percent of the game's own (0 turns it off). Kollontay's jam applies in every raid, since he is a regular Streets boss. Vengeful Zryachiy's jam only matters in Halloween with the ritual part on, which is when he appears; below 100 it becomes a timed jam, because in the game it never ends, and his panic stays. The client plugin reads the values from the server at each raid, so every player needs the new client files.
+- **Mechanics panel:** exact values for event mechanics, with the game's own as the default and each row tagged with when it applies.
+  - **Weapon jams** (needs the new client files, applies from the next raid): how many seconds Kollontay's jam lasts, in every raid since he is a regular Streets boss, and how long Vengeful Zryachiy's lasts. The game's Vengeful Zryachiy jam never ends, so it is set to -1; 0 turns a jam off and his panic stays.
+  - **Halloween ritual:** how many times longer extracts take and how many times faster stamina drains.
+  - **Zombie infection:** hydration lost per second and the hearing lost.
+  - The ritual and infection values apply after a server restart.
 
 ## 1.5.1
 

@@ -152,16 +152,28 @@ public sealed class ChristmasParts
         Santa == other.Santa && Hideout == other.Hideout && Khorovod == other.Khorovod && WinterClothes == other.WinterClothes;
 }
 
-/// <summary>Boss mechanics the client plugin changes, as percent of stock (0 turns one off). They apply in every raid, whatever events are on.</summary>
+/// <summary>
+/// Event mechanics with absolute values; the defaults are what the game does. The jams are applied by the client plugin
+/// in every raid, the rest are written into the server's globals at startup.
+/// </summary>
 public sealed class MechanicsSettings
 {
-    /// <summary>Length of the weapon jam Kollontay (Streets) causes.</summary>
-    public int KollontayJam { get; set; } = 100;
-    /// <summary>Length of the weapon jam Vengeful Zryachiy causes; he only appears with the Halloween ritual.</summary>
-    public int VengefulJam { get; set; } = 100;
+    /// <summary>Seconds Kollontay's hits jam the weapon (Streets boss, any raid); 0 turns it off.</summary>
+    public double KollontayJam { get; set; } = 5;
+    /// <summary>Seconds Vengeful Zryachiy's jam lasts, 0 turns it off and -1 keeps the game's, which never ends. He only appears with the Halloween ritual.</summary>
+    public double VengefulJam { get; set; } = -1;
+    /// <summary>Halloween 2023 ritual: how many times longer extracts take.</summary>
+    public double RitualExitTime { get; set; } = 3;
+    /// <summary>Halloween 2023 ritual: how many times faster stamina drains.</summary>
+    public double RitualStamina { get; set; } = 3;
+    /// <summary>Zombie infection: hydration lost per second.</summary>
+    public double ToxinHydration { get; set; } = 10;
+    /// <summary>Zombie infection: hearing lost, in percent.</summary>
+    public double ToxinHearing { get; set; } = 33;
 
-    public MechanicsSettings Clone() => new() { KollontayJam = KollontayJam, VengefulJam = VengefulJam };
-    public bool SameAs(MechanicsSettings other) => KollontayJam == other.KollontayJam && VengefulJam == other.VengefulJam;
+    public MechanicsSettings Clone() => (MechanicsSettings)MemberwiseClone();
+    public bool SameAs(MechanicsSettings o) => KollontayJam == o.KollontayJam && VengefulJam == o.VengefulJam && RitualExitTime == o.RitualExitTime
+        && RitualStamina == o.RitualStamina && ToxinHydration == o.ToxinHydration && ToxinHearing == o.ToxinHearing;
 }
 
 public sealed class PpesConfig
