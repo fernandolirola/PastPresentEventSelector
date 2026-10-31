@@ -112,12 +112,14 @@ public sealed class HalloweenParts
     public bool Outbreak2026 { get; set; }
     /// <summary>Pumpkins with sweets in containers, signal pistols and acid green flares on Scavs.</summary>
     public bool Loot { get; set; } = true;
+    /// <summary>How long Kollontay's and Vengeful Zryachiy's weapon jams last, in percent of stock (0 turns them off). Applied by the client plugin.</summary>
+    public int MisfirePercent { get; set; } = 100;
 
-    public HalloweenParts Clone() => new() { Ritual = Ritual, Zombies = Zombies, Cultists = Cultists, LabInfectedOnly = LabInfectedOnly, FreeLab = FreeLab, Outbreak2026 = Outbreak2026, Loot = Loot };
+    public HalloweenParts Clone() => new() { Ritual = Ritual, Zombies = Zombies, Cultists = Cultists, LabInfectedOnly = LabInfectedOnly, FreeLab = FreeLab, Outbreak2026 = Outbreak2026, Loot = Loot, MisfirePercent = MisfirePercent };
 
     public bool SameAs(HalloweenParts other) =>
         Ritual == other.Ritual && Zombies == other.Zombies && Cultists == other.Cultists && LabInfectedOnly == other.LabInfectedOnly && FreeLab == other.FreeLab
-        && Outbreak2026 == other.Outbreak2026 && Loot == other.Loot;
+        && Outbreak2026 == other.Outbreak2026 && Loot == other.Loot && MisfirePercent == other.MisfirePercent;
 
     /// <summary>The 2026 outbreak needs the zombies, so it switches them on.</summary>
     [JsonIgnore]

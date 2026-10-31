@@ -6,7 +6,7 @@
     <OutputType>Library</OutputType>
     <AssemblyName>PastPresentEventSelector</AssemblyName>
     <RootNamespace>PPES</RootNamespace>
-    <Version>1.5.1</Version>
+    <Version>1.6.0</Version>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
     <!-- MoreBotsAPI is referenced, not shipped, so the release still has only the dll, config and wwwroot -->

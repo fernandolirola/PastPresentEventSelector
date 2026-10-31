@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.0
+
+- **Boss weapon jams, your percentage:** a new field on the Halloween card sets how long the weapon jams from Kollontay and Vengeful Zryachiy last, from 0 (off) to 100 (as in the game). Kollontay's 5 second jam is scaled; Vengeful Zryachiy's jam, which never ends in the game, becomes a timed jam below 100 and the panic stays. The client plugin reads the value from the server at the start of each raid, so it needs the new client files.
+
 ## 1.5.1
 
 - **Blackout with Vultify's Blackout mod:** when that mod is installed, the Blackout event makes every Lab raid go dark too, with its gate-only extracts, keypad codes and arsenal key, together with Wedge and Black Division. Without the event, Vultify's mod keeps its own chance. The page shows a badge for it on the Blackout card.

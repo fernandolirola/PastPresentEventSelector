@@ -140,6 +140,15 @@
                                         <span>@T(part.Pt, part.En)</span>
                                     </label>
                                 }
+                                @if (s.Id == "halloween")
+                                {
+                                    <label class="ppes-part" title="@T("Quanto tempo as travas de arma do Kollontay e do Zryachiy Vingativo duram, em % do normal. 0 desliga. Precisa do plugin do cliente.", "How long Kollontay's and Vengeful Zryachiy's weapon jams last, in percent of stock. 0 turns them off. Needs the client plugin.")">
+                                        <span>@T("Travas de arma dos chefes:", "Boss weapon jams:")</span>
+                                        <input class="ppes-input ppes-number" type="number" min="0" max="100" aria-label="@T("Travas de arma, porcentagem", "Weapon jams, percent")"
+                                               value="@working.Halloween.MisfirePercent" @onchange="@(e => working.Halloween.MisfirePercent = Math.Clamp(int.TryParse(e.Value?.ToString(), out var n) ? n : 100, 0, 100))" />
+                                        <span>%</span>
+                                    </label>
+                                }
                             </div>
                         }
                         <div class="ppes-card-foot">
