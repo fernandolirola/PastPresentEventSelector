@@ -4,7 +4,7 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>PastPresentEventSelector.Client</AssemblyName>
     <RootNamespace>PPES.Client</RootNamespace>
-    <Version>1.6.0</Version>
+    <Version>1.6.1</Version>
     <GenerateDependencyFile>false</GenerateDependencyFile>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <!-- game install used only for references at build time -->

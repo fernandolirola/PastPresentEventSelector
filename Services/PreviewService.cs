@@ -161,6 +161,7 @@ public sealed class PreviewService(LocationTable locations, ICloner cloner, Seas
 
     private static string PrettyZone(string zone)
     {
+        if (string.Equals(zone, "ZoneRailStrorage", StringComparison.OrdinalIgnoreCase)) return "Rail Storage";
         var name = zone.StartsWith("Zone_") ? zone[5..] : zone.StartsWith("Zone") ? zone[4..] : zone.StartsWith("BotZone") ? zone[7..] : zone;
         return name.Length == 0 ? zone : name;
     }

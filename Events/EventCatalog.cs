@@ -50,6 +50,7 @@ public static class EventCatalog
     public const string Halloween2026 = "halloween2026";
 
     private const string CustomsZones = "ZoneDormitory,ZoneGasStation,ZoneScavBase";
+    // ZoneRailStrorage is SPT's stock Reserve zone key; keep its spelling for game compatibility.
     private const string ReserveZones = "ZoneRailStrorage,ZonePTOR2,ZoneBarrack,ZoneSubStorage";
     private const string LabZones = "BotZoneFloor1,BotZoneFloor2";
     private const string BlackDivLab = "BotZoneFloor2,BotZoneFloor1,BotZoneBasement";

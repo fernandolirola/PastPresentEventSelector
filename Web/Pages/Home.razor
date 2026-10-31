@@ -1074,7 +1074,8 @@
     private void SetZones(string role, string? text)
     {
         var zones = string.Join(",", (text ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
-        if (zones.Length > 0) EditOf(role).Zones = zones;
+        // An empty value clears this override and restores the map's original zones.
+        EditOf(role).Zones = zones.Length > 0 ? zones : null;
     }
 
     private void SetEscort(string role, string? text)

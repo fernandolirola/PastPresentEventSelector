@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.1
+
+- **Spawn editor:** clearing a zone field now removes the zone override and restores the map's original zones.
+- **Reserve zone label:** the preview displays SPT's `ZoneRailStrorage` key as "Rail Storage" while keeping the original key for compatibility.
+
 ## 1.6.0
 
 - **Mechanics panel:** exact values for event mechanics, with the game's own as the default and each row tagged with when it applies.
