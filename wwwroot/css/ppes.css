@@ -631,6 +631,12 @@
 /* ---------- raid preview editor ---------- */
 .ppes-table-edit .ppes-tr { grid-template-columns: minmax(150px, 1.2fr) 74px minmax(0, 2.4fr) 74px 64px; }
 .ppes-cell { width: 100%; min-width: 0; padding: 3px 6px; font-size: 0.82rem; }
+.ppes-zone-editor { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.ppes-zone-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.ppes-zone-chip { display: inline-flex; align-items: center; gap: 3px; max-width: 100%; padding: 2px 6px; border: 1px solid var(--spt-border); border-radius: 999px; background: transparent; color: var(--spt-text-muted); font: inherit; font-size: 0.72rem; cursor: pointer; }
+.ppes-zone-chip:hover { border-color: var(--spt-accent); color: var(--spt-accent); }
+.ppes-zone-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ppes-zone-chip .mud-icon-root { font-size: 0.85rem; flex: 0 0 auto; }
 .ppes-row-actions { display: inline-flex; gap: 2px; justify-content: flex-end; }
 
 .ppes-icon-btn {

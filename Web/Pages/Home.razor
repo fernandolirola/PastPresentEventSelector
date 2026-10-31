@@ -375,8 +375,23 @@
                                     {
                                         <input class="ppes-input ppes-cell" type="number" min="0" max="100" step="1" aria-label="@T("Chance", "Chance")" value="@s.Chance.ToString("0.#", CultureInfo.InvariantCulture)"
                                                @onchange="@(e => SetChance(s.Role, e.Value?.ToString()))" />
-                                        <input class="ppes-input ppes-cell" list="@ZoneListId" aria-label="@T("Zonas", "Zones")" title="@T("Zonas separadas por vírgula", "Comma separated zones")" value="@s.RawZones"
-                                               placeholder="@T("por gatilho", "by trigger")" @onchange="@(e => SetZones(s.Role, e.Value?.ToString()))" />
+                                        <div class="ppes-zone-editor">
+                                            <input class="ppes-input ppes-cell" list="@ZoneListId" aria-label="@T("Zonas", "Zones")" title="@T("Zonas separadas por vírgula", "Comma separated zones")" value="@s.RawZones"
+                                                   placeholder="@T("por gatilho", "by trigger")" @onchange="@(e => SetZones(s.Role, e.Value?.ToString()))" />
+                                            @if (ZoneTokens(s.RawZones).Length > 1)
+                                            {
+                                                <div class="ppes-zone-chips" aria-label="@T("Remover zonas individualmente", "Remove zones individually")">
+                                                    @foreach (var zone in ZoneTokens(s.RawZones))
+                                                    {
+                                                        <button class="ppes-zone-chip" type="button" title="@T($"Remover {zone}", $"Remove {zone}")"
+                                                                aria-label="@T($"Remover zona {zone}", $"Remove zone {zone}")"
+                                                                @onclick="@(() => RemoveZone(s.Role, zone, s.RawZones))">
+                                                            <span>@zone</span><MudIcon Icon="@Icons.Material.Filled.Close" />
+                                                        </button>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
                                         <input class="ppes-input ppes-cell" aria-label="@T("Escolta", "Escort")" title="@T("Ex.: 2 ou 1-3", "E.g. 2 or 1-3")" value="@EscortValue(s)"
                                                @onchange="@(e => SetEscort(s.Role, e.Value?.ToString()))" />
                                         <span class="ppes-row-actions">
@@ -1076,6 +1091,19 @@
         var zones = string.Join(",", (text ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
         // An empty value clears this override and restores the map's original zones.
         EditOf(role).Zones = zones.Length > 0 ? zones : null;
+    }
+
+    private static string[] ZoneTokens(string? zones) =>
+        (zones ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+    private void RemoveZone(string role, string zone, string? currentZones)
+    {
+        var remaining = ZoneTokens(currentZones)
+            .Where(candidate => !string.Equals(candidate, zone, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        if (remaining.Length > 0) SetZones(role, string.Join(",", remaining));
     }
 
     private void SetEscort(string role, string? text)

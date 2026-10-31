@@ -3,6 +3,7 @@
 ## 1.6.1
 
 - **Spawn editor:** clearing a zone field now removes the zone override and restores the map's original zones.
+- **Raid preview:** zones can now be removed one at a time without replacing the rest of the list.
 - **Reserve zone label:** the preview displays SPT's `ZoneRailStrorage` key as "Rail Storage" while keeping the original key for compatibility.
 
 ## 1.6.0
