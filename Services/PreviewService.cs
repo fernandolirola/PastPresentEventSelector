@@ -163,7 +163,7 @@ public sealed class PreviewService(LocationTable locations, ICloner cloner, Seas
         {
             var (en, pt) = RoleNames.GetValueOrDefault(group.Key, (group.Key, group.Key));
             var zones = string.Join(", ", group.SelectMany(s => (s.BossZone ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                .Select(PrettyZone).Distinct().Take(6));
+                .Select(ZoneLabel).Distinct().Take(6));
             // SPT stores escort size as a weighted list ("1,1,2,2,3"); the page only needs its range
             var sizes = group.SelectMany(s => (s.BossEscortAmount ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries))
                 .Select(v => int.TryParse(v.Trim(), out var n) ? n : 0).DefaultIfEmpty(0).ToList();
@@ -200,7 +200,7 @@ public sealed class PreviewService(LocationTable locations, ICloner cloner, Seas
         return match.Key is null ? null : outbreak && match.Value <= 0 ? 40 : match.Value;
     }
 
-    private static string PrettyZone(string zone)
+    public static string ZoneLabel(string zone)
     {
         if (string.Equals(zone, "ZoneRailStrorage", StringComparison.OrdinalIgnoreCase)) return "Rail Storage";
         var name = zone.StartsWith("Zone_") ? zone[5..] : zone.StartsWith("Zone") ? zone[4..] : zone.StartsWith("BotZone") ? zone[7..] : zone;

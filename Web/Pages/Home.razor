@@ -417,17 +417,23 @@
                                         <input class="ppes-input ppes-cell" type="number" min="0" max="100" step="1" aria-label="@T("Chance", "Chance")" value="@s.Chance.ToString("0.#", CultureInfo.InvariantCulture)"
                                                @onchange="@(e => SetChance(s.Role, e.Value?.ToString()))" />
                                         <div class="ppes-zone-editor">
-                                            <input class="ppes-input ppes-cell" list="@ZoneListId" aria-label="@T("Zonas", "Zones")" title="@T("Zonas separadas por vírgula", "Comma separated zones")" value="@s.RawZones"
-                                                   placeholder="@T("por gatilho", "by trigger")" @onchange="@(e => SetZones(s.Role, e.Value?.ToString()))" />
-                                            @if (ZoneTokens(s.RawZones).Length > 1)
+                                            <select class="ppes-input ppes-cell ppes-zone-select" value="" aria-label="@T("Adicionar região", "Add region")"
+                                                    @onchange="@(e => AddZone(s.Role, e.Value?.ToString(), s.RawZones))">
+                                                <option value="">@T("Adicionar região...", "Add region...")</option>
+                                                @foreach (var zone in AvailableZones(s.RawZones))
+                                                {
+                                                    <option value="@zone">@PreviewService.ZoneLabel(zone)</option>
+                                                }
+                                            </select>
+                                            @if (ZoneTokens(s.RawZones).Length > 0)
                                             {
                                                 <div class="ppes-zone-chips" aria-label="@T("Remover zonas individualmente", "Remove zones individually")">
                                                     @foreach (var zone in ZoneTokens(s.RawZones))
                                                     {
-                                                        <button class="ppes-zone-chip" type="button" title="@T($"Remover {zone}", $"Remove {zone}")"
-                                                                aria-label="@T($"Remover zona {zone}", $"Remove zone {zone}")"
+                                                        <button class="ppes-zone-chip" type="button" title="@T($"Remover {PreviewService.ZoneLabel(zone)}", $"Remove {PreviewService.ZoneLabel(zone)}")"
+                                                                aria-label="@T($"Remover região {PreviewService.ZoneLabel(zone)}", $"Remove region {PreviewService.ZoneLabel(zone)}")"
                                                                 @onclick="@(() => RemoveZone(s.Role, zone, s.RawZones))">
-                                                            <span>@zone</span><MudIcon Icon="@Icons.Material.Filled.Close" />
+                                                            <span>@PreviewService.ZoneLabel(zone)</span><MudIcon Icon="@Icons.Material.Filled.Close" />
                                                         </button>
                                                     }
                                                 </div>
@@ -1169,6 +1175,18 @@
         (zones ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
+
+    private IEnumerable<string> AvailableZones(string? currentZones)
+    {
+        var current = ZoneTokens(currentZones).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return Previewer.ZonesOf(previewMap).Where(zone => !current.Contains(zone));
+    }
+
+    private void AddZone(string role, string? zone, string? currentZones)
+    {
+        if (string.IsNullOrWhiteSpace(zone)) return;
+        SetZones(role, string.Join(",", ZoneTokens(currentZones).Append(zone).Distinct(StringComparer.OrdinalIgnoreCase)));
+    }
 
     private void RemoveZone(string role, string zone, string? currentZones)
     {

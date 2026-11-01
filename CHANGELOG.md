@@ -3,6 +3,7 @@
 ## 1.7.1
 
 - **Raider region editing:** removing a region now removes every Raider spawn definition tied to that region, including extraction, lever and patrol-triggered waves, without moving or deleting the waves in regions that remain.
+- **Region selector:** the spawn editor now uses a real Add region dropdown with removable region chips instead of a comma-separated text field with unreliable browser suggestions.
 - **Clearer raid preview:** internal duplicate spawn definitions no longer appear as misleading `x4` group counts.
 - **Planned factions and infected:** the preview includes factions introduced by the current unsaved event selection. Halloween previews show the infected entries and the map's infection percentage, such as Factory's stock 50%, before the server restart.
 
