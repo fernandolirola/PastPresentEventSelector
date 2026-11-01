@@ -389,6 +389,10 @@
                         {
                             <span class="ppes-badge ppes-badge-hot"><MudIcon Icon="@Icons.Material.Filled.Warning" /> @T("Morteiros", "Mortars")</span>
                         }
+                        @if (preview.ZombieInfection is { } infection)
+                        {
+                            <span class="ppes-badge ppes-badge-hot"><MudIcon Icon="@Icons.Material.Filled.Coronavirus" /> @T("Infecção zumbi", "Zombie infection") @Percent(infection)</span>
+                        }
                         @if (preview.NeedsKeycard is { } keycard)
                         {
                             <span class="ppes-badge"><MudIcon Icon="@Icons.Material.Filled.VpnKey" /> @(keycard ? T("Precisa de cartão", "Keycard needed") : T("Sem cartão", "No keycard"))</span>
@@ -407,7 +411,7 @@
                             @foreach (var s in preview.Spawns)
                             {
                                 <div class="@($"ppes-tr {(s.Changed ? "ppes-tr-changed" : "")}")" role="row">
-                                    <span>@T(s.NamePt, s.NameEn)@(s.Groups > 1 ? $" ×{s.Groups}" : "")@if (s.Custom){<span class="ppes-changed ppes-custom">@T("seu", "yours")</span>}else if (s.Changed){<span class="ppes-changed">@T("evento", "event")</span>}</span>
+                                    <span>@T(s.NamePt, s.NameEn)@if (s.Custom){<span class="ppes-changed ppes-custom">@T("seu", "yours")</span>}else if (s.Changed){<span class="ppes-changed">@T("evento", "event")</span>}</span>
                                     @if (editing)
                                     {
                                         <input class="ppes-input ppes-cell" type="number" min="0" max="100" step="1" aria-label="@T("Chance", "Chance")" value="@s.Chance.ToString("0.#", CultureInfo.InvariantCulture)"
@@ -811,11 +815,13 @@
         {
             var events = EventSchedule.RaidEvents(working, Now).Concat(working.Events.Where(id => id is "mortarStrike" or "freeLabs" or "softcore")).Distinct().ToList();
             var edits = working.SpawnsOf(previewMap);
-            var key = previewMap + "|" + string.Join(",", events) + "|" + string.Join(";", edits.Select(e => $"{e.Role}:{e.Remove}:{e.Chance}:{e.Zones}:{e.Escort}"));
+            var h = working.Halloween;
+            var key = previewMap + "|" + string.Join(",", events) + "|" + string.Join(";", edits.Select(e => $"{e.Role}:{e.Remove}:{e.Chance}:{e.Zones}:{e.Escort}"))
+                + $"|h:{working.ModeOf("halloween")}:{h.ZombiesOn}:{h.ZombieWaves}:{h.ZombieWaveSizeMin}:{h.ZombieWaveSizeMax}:{h.ZombieWaveIntervalMin}:{h.ZombieWaveIntervalMax}:{h.Outbreak2026}";
             if (previewCache is { } cached && cached.Key == key) return cached.Value;
             try
             {
-                var value = Previewer.Preview(previewMap, events, edits);
+                var value = Previewer.Preview(previewMap, events, edits, working);
                 previewCache = (key, value);
                 previewError = null;
                 return value;
@@ -1170,6 +1176,7 @@
             .Where(candidate => !string.Equals(candidate, zone, StringComparison.OrdinalIgnoreCase))
             .ToArray();
         if (remaining.Length > 0) SetZones(role, string.Join(",", remaining));
+        else RemoveRole(role);
     }
 
     private void SetEscort(string role, string? text)

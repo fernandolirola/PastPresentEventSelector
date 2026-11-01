@@ -19,13 +19,13 @@ public static class SpawnEdits
                 continue;
             }
             var escort = EscortList(e.Escort);
-            var own = spawns.Where(s => string.Equals(s.BossName, e.Role, StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(s.TriggerId)).ToList();
+            var own = spawns.Where(s => string.Equals(s.BossName, e.Role, StringComparison.OrdinalIgnoreCase)).ToList();
             if (own.Count > 0)
             {
+                if (e.Zones is not null) own = ApplyZones(spawns, own, e.Zones);
                 foreach (var s in own)
                 {
-                    if (e.Chance is { } chance) s.BossChance = chance;
-                    if (e.Zones is not null) s.BossZone = e.Zones;
+                    if (e.Chance is { } chance) s.BossChance = StoredChance(e.Role, chance, s.BossChance ?? 0);
                     if (escort is not null) s.BossEscortAmount = escort;
                 }
                 continue;
@@ -57,5 +57,38 @@ public static class SpawnEdits
         if (NormalizeEscort(escort) is not { } normalized) return null;
         var parts = normalized.Split('-').Select(int.Parse).ToArray();
         return parts.Length == 1 ? normalized : string.Join(",", Enumerable.Range(parts[0], parts[1] - parts[0] + 1));
+    }
+
+    private static double StoredChance(string role, double chance, double current) =>
+        role.StartsWith("infected", StringComparison.OrdinalIgnoreCase) && current > 100 ? chance * 100 : chance;
+
+    private static List<SPTarkov.Server.Core.Models.Eft.Common.BossLocationSpawn> ApplyZones(
+        List<SPTarkov.Server.Core.Models.Eft.Common.BossLocationSpawn> spawns,
+        List<SPTarkov.Server.Core.Models.Eft.Common.BossLocationSpawn> own,
+        string zones)
+    {
+        var requested = zones.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var covered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var remaining = new List<SPTarkov.Server.Core.Models.Eft.Common.BossLocationSpawn>();
+
+        foreach (var spawn in own)
+        {
+            var current = (spawn.BossZone ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var kept = current.Where(requested.Contains).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            if (current.Length > 0 && kept.Length == 0)
+            {
+                spawns.Remove(spawn);
+                continue;
+            }
+            if (kept.Length > 0) spawn.BossZone = string.Join(",", kept);
+            covered.UnionWith(kept);
+            remaining.Add(spawn);
+        }
+
+        var added = requested.Except(covered, StringComparer.OrdinalIgnoreCase).ToArray();
+        if (added.Length > 0 && remaining.FirstOrDefault(s => string.IsNullOrEmpty(s.TriggerId)) is { } primary)
+            primary.BossZone = string.Join(",", (primary.BossZone ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Concat(added));
+        return remaining;
     }
 }

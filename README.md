@@ -16,7 +16,7 @@ Open `https://127.0.0.1:6969/ppes` while the server is running. The page is in E
 
 ## Page features
 
-- **Raid preview:** pick a map and see the bosses, groups, airdrop chance, mortars and keycard rules the next raid would have with your current picks, saved or not.
+- **Raid preview:** pick a map and see the bosses, custom factions, seasonal infected, infection percentage, airdrop chance, mortars and keycard rules the next raid would have with your current picks, saved or not.
 - **Spawn editor:** in the raid preview, press Edit to change any boss or group's chance, zones and escort, remove it, or add a boss or faction to the map. Your changes apply after the events, from the next raid.
 - **Filters:** search, filter by map, by type (bosses, quests, traders, flea, airdrops, hideout, rules, map access, hazards) and by tag. Cards or a compact list, grouped by year.
 - **Impact and conflicts:** each event shows the maps and systems it touches, which events it cannot run with, and which picked events change the same thing.

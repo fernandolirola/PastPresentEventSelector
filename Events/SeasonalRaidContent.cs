@@ -24,6 +24,22 @@ public static class SeasonalRaidContent
         if (registry.StopDancingTree) StopDancingTree(ctx.Location);
     }
 
+    public static int AddEventBossGroup(RaidContext ctx, string groupKey, SeasonalEventConfig seasonalConfig, ICloner cloner)
+    {
+        if (ctx.Location.BossLocationSpawn is null
+            || !seasonalConfig.EventBossSpawns.TryGetValue(groupKey, out var byMap)
+            || !byMap.TryGetValue(ctx.MapId, out var bosses)) return 0;
+
+        var added = 0;
+        foreach (var boss in bosses)
+        {
+            if (ctx.Location.BossLocationSpawn.Any(b => b.TriggerName != "botEvent" && b.BossName == boss.BossName)) continue;
+            ctx.Location.BossLocationSpawn.Add(cloner.Clone(boss)!);
+            added++;
+        }
+        return added;
+    }
+
     public static int AddZombieWaves(RaidContext ctx, SeasonalBossRegistry registry, HalloweenParts settings, ICloner cloner)
     {
         if (!registry.ZombiesActive || !settings.ZombieWaves || ctx.Location.BossLocationSpawn is not { } spawns) return 0;
@@ -75,12 +91,7 @@ public static class SeasonalRaidContent
             if (group.Maps is { } maps && !maps.Contains(ctx.MapId)) continue;
             // SPT clears these maps after adding the ritual group, so only the infected group lands there
             if (infectedOnly && group.Maps is null) continue;
-            if (!seasonalConfig.EventBossSpawns.TryGetValue(group.Key, out var byMap) || !byMap.TryGetValue(ctx.MapId, out var bosses)) continue;
-            foreach (var boss in bosses)
-            {
-                if (ctx.Location.BossLocationSpawn!.All(b => b.TriggerName == "botEvent" || b.BossName != boss.BossName))
-                    ctx.Location.BossLocationSpawn!.Add(cloner.Clone(boss)!);
-            }
+            AddEventBossGroup(ctx, group.Key, seasonalConfig, cloner);
         }
     }
 

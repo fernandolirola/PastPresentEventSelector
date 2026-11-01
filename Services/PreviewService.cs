@@ -13,7 +13,7 @@ namespace PPES.Services;
 public sealed record PreviewSpawn(string Role, string NameEn, string NamePt, double Chance, int Groups, string Zones, int EscortMin, int EscortMax, bool Changed,
     string RawZones = "", bool Custom = false);
 
-public sealed record RaidPreview(string MapId, IReadOnlyList<PreviewSpawn> Spawns, double AirdropChance, int AirdropMax, bool Mortar, bool? NeedsKeycard,
+public sealed record RaidPreview(string MapId, IReadOnlyList<PreviewSpawn> Spawns, double AirdropChance, int AirdropMax, bool Mortar, bool? NeedsKeycard, double? ZombieInfection,
     IReadOnlyList<PreviewSpawn> Removed);
 
 public sealed record RoleOption(string Role, string NameEn, string NamePt);
@@ -23,7 +23,7 @@ public sealed record RoleOption(string Role, string NameEn, string NamePt);
 /// what the next raid would look like. Works on unsaved picks too.
 /// </summary>
 [Injectable(InjectionType.Singleton)]
-public sealed class PreviewService(LocationTable locations, ICloner cloner, SeasonalBossRegistry seasonalBosses, SeasonalEventConfig seasonalConfig, ConfigService config)
+public sealed class PreviewService(LocationTable locations, ICloner cloner, SeasonalBossRegistry seasonalBosses, SeasonalCalendar seasonalCalendar, SeasonalEventConfig seasonalConfig, ConfigService config)
 {
     // roles the editor offers to add; trigger-only and event-scripted roles (ritual, Santa's helpers) are left out
     private static readonly string[] Addable =
@@ -100,7 +100,7 @@ public sealed class PreviewService(LocationTable locations, ICloner cloner, Seas
             .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
-    public RaidPreview Preview(string mapId, IReadOnlyCollection<string> events, IReadOnlyList<SpawnEdit>? edits = null)
+    public RaidPreview Preview(string mapId, IReadOnlyCollection<string> events, IReadOnlyList<SpawnEdit>? edits = null, PpesConfig? selection = null)
     {
         var source = locations.GetLocation(mapId)?.Base ?? throw new InvalidOperationException($"Unknown map {mapId}");
         var before = Summarize(source.BossLocationSpawn ?? []);
@@ -109,7 +109,19 @@ public sealed class PreviewService(LocationTable locations, ICloner cloner, Seas
         var ctx = new RaidContext(copy, mapId, locations, cloner);
         // seasonal bosses as the server runs them now; seasonal changes only apply after a restart
         SeasonalRaidContent.Apply(ctx, seasonalBosses, seasonalConfig, cloner);
-        SeasonalRaidContent.AddZombieWaves(ctx, seasonalBosses, config.Saved.Halloween, cloner);
+        var halloween = selection?.Halloween ?? config.Saved.Halloween;
+        var halloweenOn = selection is null
+            ? seasonalBosses.ZombiesActive
+            : EventSchedule.SeasonalActive(selection, seasonalCalendar, "halloween", DateTimeOffset.Now.DateTime);
+        var zombiesOn = halloweenOn && halloween.ZombiesOn;
+        if (selection is not null)
+        {
+            if (!zombiesOn)
+                copy.BossLocationSpawn?.RemoveAll(b => b.BossName?.StartsWith("infected", StringComparison.OrdinalIgnoreCase) == true);
+            else
+                SeasonalRaidContent.AddEventBossGroup(ctx, "halloweenzombies", seasonalConfig, cloner);
+        }
+        if (zombiesOn) SeasonalRaidContent.AddZombieWaves(ctx, PreviewRegistry(zombiesOn), halloween, cloner);
         foreach (var id in events)
             EventCatalog.Past(id)?.OnRaid?.Invoke(ctx);
         var withEvents = Summarize(copy.BossLocationSpawn ?? []);
@@ -140,6 +152,7 @@ public sealed class PreviewService(LocationTable locations, ICloner cloner, Seas
             airdrops.Count == 0 ? 0 : airdrops.Max(a => a.PlaneAirdropMax ?? 0),
             events.Contains("mortarStrike", StringComparer.OrdinalIgnoreCase) && MortarMaps.Contains(mapId),
             keycard,
+            ZombieInfection(mapId, zombiesOn, halloween.Outbreak2026),
             removed);
     }
 
@@ -155,9 +168,36 @@ public sealed class PreviewService(LocationTable locations, ICloner cloner, Seas
             var sizes = group.SelectMany(s => (s.BossEscortAmount ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries))
                 .Select(v => int.TryParse(v.Trim(), out var n) ? n : 0).DefaultIfEmpty(0).ToList();
             var raw = string.Join(",", group.SelectMany(s => (s.BossZone ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)).Distinct());
-            result[group.Key] = new PreviewSpawn(group.Key, en, pt, group.Max(s => s.BossChance ?? 0), group.Count(), zones, sizes.Min(), sizes.Max(), false, raw);
+            var chance = group.Max(s => s.BossChance ?? 0);
+            if (group.Key.StartsWith("infected", StringComparison.OrdinalIgnoreCase) && chance > 100) chance /= 100;
+            result[group.Key] = new PreviewSpawn(group.Key, en, pt, chance, group.Count(), zones, sizes.Min(), sizes.Max(), false, raw);
         }
         return result;
+    }
+
+    private SeasonalBossRegistry PreviewRegistry(bool zombiesOn)
+    {
+        var registry = new SeasonalBossRegistry();
+        registry.Set([], false, false, false, [], false, zombiesOn);
+        return registry;
+    }
+
+    private double? ZombieInfection(string mapId, bool zombiesOn, bool outbreak)
+    {
+        if (!zombiesOn) return null;
+        var dataKey = mapId switch
+        {
+            "factory4_day" or "factory4_night" => "factory4",
+            "sandbox_high" => "sandbox",
+            _ => mapId,
+        };
+        var amounts = seasonalConfig.Events?
+            .Where(e => e.Type == SPTarkov.Server.Core.Models.Enums.SeasonalEventType.Halloween)
+            .Select(e => e.Settings?.ZombieSettings?.MapInfectionAmount)
+            .FirstOrDefault(x => x is not null);
+        if (amounts is null) return null;
+        var match = amounts.FirstOrDefault(x => string.Equals(x.Key, dataKey, StringComparison.OrdinalIgnoreCase));
+        return match.Key is null ? null : outbreak && match.Value <= 0 ? 40 : match.Value;
     }
 
     private static string PrettyZone(string zone)

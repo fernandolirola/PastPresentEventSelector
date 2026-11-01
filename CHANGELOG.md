@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.1
+
+- **Raider region editing:** removing a region now removes every Raider spawn definition tied to that region, including extraction, lever and patrol-triggered waves, without moving or deleting the waves in regions that remain.
+- **Clearer raid preview:** internal duplicate spawn definitions no longer appear as misleading `x4` group counts.
+- **Planned factions and infected:** the preview includes factions introduced by the current unsaved event selection. Halloween previews show the infected entries and the map's infection percentage, such as Factory's stock 50%, before the server restart.
+
 ## 1.7.0
 
 - **Zombie reinforcement waves:** optional Halloween setting continues spawning infected through the raid instead of stopping after the stock finite schedule. Wave size and interval have editable minimum and maximum values; differing values randomize every wave, along with infected type and zone.
