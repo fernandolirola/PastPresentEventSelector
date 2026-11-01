@@ -35,6 +35,11 @@ public sealed class PreviewService(LocationTable locations, ICloner cloner, Seas
     ];
 
     private static readonly string[] MortarMaps = ["bigmap", "woods", "shoreline", "rezervbase"];
+    private static readonly Dictionary<string, string[]> ZoneFallbacks = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["sandbox"] = ["ZoneSandbox"],
+        ["sandbox_high"] = ["ZoneSandbox"],
+    };
     private static readonly HashSet<string> Ignored = new(StringComparer.OrdinalIgnoreCase)
     {
         "assault", "marksman", "pmcUSEC", "pmcBEAR", "cursedAssault", "assaultGroup", "crazyAssaultEvent",
@@ -96,6 +101,7 @@ public sealed class PreviewService(LocationTable locations, ICloner cloner, Seas
         if (location is null) return [];
         return (location.OpenZones ?? "").Split(',')
             .Concat((location.BossLocationSpawn ?? []).SelectMany(b => (b.BossZone ?? "").Split(',')))
+            .Concat(ZoneFallbacks.GetValueOrDefault(mapId) ?? [])
             .Select(z => z.Trim()).Where(z => z.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
     }
