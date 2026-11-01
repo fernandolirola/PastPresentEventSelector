@@ -374,7 +374,7 @@
             <div class="ppes-maps" role="tablist">
                 @foreach (var m in EventDetails.Maps)
                 {
-                    <button role="tab" aria-selected="@(previewMap == m.Id)" class="@($"{(previewMap == m.Id ? "ppes-on" : "")} {(MapTouched(m.Id) ? "ppes-map-touched" : "")}")" @onclick="@(() => previewMap = m.Id)">@T(m.NamePt, m.NameEn)@if (working.SpawnsOf(m.Id).Count > 0){<MudIcon Icon="@Icons.Material.Filled.Edit" Class="ppes-map-edited" />}</button>
+                    <button role="tab" aria-selected="@(previewMap == m.Id)" class="@($"{(previewMap == m.Id ? "ppes-on" : "")} {(MapTouched(m.Id) ? "ppes-map-touched" : "")}")" @onclick="@(() => SelectPreviewMap(m.Id))">@T(m.NamePt, m.NameEn)@if (working.SpawnsOf(m.Id).Count > 0){<MudIcon Icon="@Icons.Material.Filled.Edit" Class="ppes-map-edited" />}</button>
                 }
             </div>
             @if (Preview is { } preview)
@@ -474,12 +474,6 @@
                     }
                     @if (editing)
                     {
-                        <datalist id="@ZoneListId">
-                            @foreach (var z in Previewer.ZonesOf(previewMap))
-                            {
-                                <option value="@z"></option>
-                            }
-                        </datalist>
                         <div class="ppes-add-spawn">
                             <span class="ppes-label">@T("Adicionar:", "Add:")</span>
                             <select class="ppes-input" @bind="addRole" aria-label="@T("Chefe ou facção", "Boss or faction")">
@@ -491,7 +485,27 @@
                             </select>
                             <input class="ppes-input ppes-number" type="number" min="1" max="100" aria-label="@T("Chance", "Chance")" @bind="addChance" />
                             <span class="ppes-label">%</span>
-                            <input class="ppes-input ppes-add-zones" list="@ZoneListId" placeholder="@T("Zonas (vazio: o mapa todo)", "Zones (empty: whole map)")" aria-label="@T("Zonas", "Zones")" @bind="addZones" />
+                            <div class="ppes-add-zone-picker">
+                                <select class="ppes-input ppes-add-zones" value="" aria-label="@T("Adicionar região", "Add region")" @onchange="@(e => AddPendingZone(e.Value?.ToString()))">
+                                    <option value="">@T("Adicionar região...", "Add region...")</option>
+                                    @foreach (var zone in AvailableZones(addZones))
+                                    {
+                                        <option value="@zone">@PreviewService.ZoneLabel(zone)</option>
+                                    }
+                                </select>
+                                @if (ZoneTokens(addZones).Length > 0)
+                                {
+                                    <div class="ppes-zone-chips" aria-label="@T("Regiões selecionadas", "Selected regions")">
+                                        @foreach (var zone in ZoneTokens(addZones))
+                                        {
+                                            <button class="ppes-zone-chip" type="button" title="@T($"Remover {PreviewService.ZoneLabel(zone)}", $"Remove {PreviewService.ZoneLabel(zone)}")"
+                                                    @onclick="@(() => RemovePendingZone(zone))">
+                                                <span>@PreviewService.ZoneLabel(zone)</span><MudIcon Icon="@Icons.Material.Filled.Close" />
+                                            </button>
+                                        }
+                                    </div>
+                                }
+                            </div>
                             <input class="ppes-input ppes-number" placeholder="@T("Escolta", "Escort")" title="@T("Ex.: 2 ou 1-3", "E.g. 2 or 1-3")" aria-label="@T("Escolta", "Escort")" @bind="addEscort" />
                             <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" Disabled="@string.IsNullOrEmpty(addRole)" OnClick="AddSpawn">@T("Adicionar", "Add")</MudButton>
                             @if (working.SpawnsOf(previewMap).Count > 0)
@@ -568,7 +582,6 @@
     private string addZones = "";
     private string addEscort = "";
 
-    private string ZoneListId => $"ppes-zones-{previewMap}";
     private (string Key, RaidPreview Value)? previewCache;
 
     private bool IsPt => Config.Saved.Language == "pt";
@@ -1182,11 +1195,28 @@
         return Previewer.ZonesOf(previewMap).Where(zone => !current.Contains(zone));
     }
 
+    private void SelectPreviewMap(string mapId)
+    {
+        if (string.Equals(previewMap, mapId, StringComparison.OrdinalIgnoreCase)) return;
+        previewMap = mapId;
+        addRole = addZones = addEscort = "";
+        addChance = 100;
+    }
+
     private void AddZone(string role, string? zone, string? currentZones)
     {
         if (string.IsNullOrWhiteSpace(zone)) return;
         SetZones(role, string.Join(",", ZoneTokens(currentZones).Append(zone).Distinct(StringComparer.OrdinalIgnoreCase)));
     }
+
+    private void AddPendingZone(string? zone)
+    {
+        if (string.IsNullOrWhiteSpace(zone)) return;
+        addZones = string.Join(",", ZoneTokens(addZones).Append(zone).Distinct(StringComparer.OrdinalIgnoreCase));
+    }
+
+    private void RemovePendingZone(string zone) =>
+        addZones = string.Join(",", ZoneTokens(addZones).Where(candidate => !string.Equals(candidate, zone, StringComparison.OrdinalIgnoreCase)));
 
     private void RemoveZone(string role, string zone, string? currentZones)
     {

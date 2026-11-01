@@ -699,7 +699,8 @@
     padding-top: 6px;
 }
 
-.ppes-add-zones { flex: 1; min-width: 180px; }
+.ppes-add-zone-picker { display: flex; flex: 1; min-width: 220px; flex-direction: column; gap: 5px; }
+.ppes-add-zones { width: 100%; }
 .ppes-map-edited { font-size: 0.8rem !important; margin-left: 4px; vertical-align: -2px; }
 
 @media (max-width: 900px) {
