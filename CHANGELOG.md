@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.4
+
+- **Faction groups spawn on time:** Cleanup Crew, Smugglers, Pillagers, Gus and Basmach no longer wait to spawn while Scavs or other bots are near their spawn area. On busy maps such as Interchange they could appear 20 seconds to 2 minutes into the raid; they now arrive at raid start again, as before 1.7.0. They still fight everyone. Requires the updated client plugin.
+
 ## 1.7.3
 
 - **End-of-raid fix:** dying to a bot with a custom role (PPES factions Cleanup Crew, Smugglers, Pillagers, Gus, Basmach, or roles added by other client mods such as Black Division) no longer makes the server reject the raid result. PPES roles are converted to their ids before the server reads the request; roles the server cannot know are left out of the killer stats.
