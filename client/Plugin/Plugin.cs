@@ -57,6 +57,14 @@ public class Plugin : BaseUnityPlugin
         }
         try
         {
+            FactionSpawnPoints.Enable(harmony);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning($"Faction spawn point fix not applied: {ex.Message}");
+        }
+        try
+        {
             InfectedMeleeFix.Enable(harmony);
         }
         catch (Exception ex)
@@ -205,6 +213,27 @@ internal static class CustomFactionSupport
         foreach (var custom in Types)
             WildSpawnTypeExtension.SubInitList(new List<WildSpawnType> { (WildSpawnType)custom.Id });
         _groupsAdded = true;
+    }
+}
+
+/// <summary>
+/// The server lists every bot role as a faction enemy so they fight everyone, but the spawn system reuses that list
+/// and rejects any spawn point with an "enemy" inside its 70-120 m sphere, holding faction waves until nearby Scavs
+/// leave. Factions only keep clear of human players when picking a point, as they did before 1.7.0.
+/// </summary>
+internal static class FactionSpawnPoints
+{
+    public static void Enable(Harmony harmony)
+    {
+        var target = AccessTools.Method(typeof(EFT.Game.Spawning.SpawnSystem), "AllAlivePotentialEnemiesPlayers",
+                [typeof(BotDifficulty), typeof(WildSpawnType), typeof(string)])
+            ?? throw new MissingMethodException("SpawnSystem.AllAlivePotentialEnemiesPlayers");
+        harmony.Patch(target, postfix: new HarmonyMethod(typeof(FactionSpawnPoints), nameof(Postfix)) { priority = Priority.Last });
+    }
+
+    private static void Postfix(WildSpawnType role, ref List<IPlayer> __result)
+    {
+        if ((int)role is >= 731001 and <= 731005) __result = new List<IPlayer>();
     }
 }
 
