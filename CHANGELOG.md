@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.3
+
+- **End-of-raid fix:** dying to a PPES faction bot (Cleanup Crew, Smugglers, Pillagers, Gus, Basmach) no longer makes the server reject the raid result (`/client/match/local/end`, `DeathCause.Role`). The faction role names are converted to their ids before the server reads the request.
+
 ## 1.7.2
 
 - **Ritual group arrival:** prepare ritual escorts before releasing their leader, then reuse the prepared profiles through native spawning. This avoids a lone priest starting while the remaining five prepare. Initial loading can still delay the group; preparation failure falls back to native spawning.

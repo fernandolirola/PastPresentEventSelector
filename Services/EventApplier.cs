@@ -75,6 +75,7 @@ public sealed class EventApplier(
 
         RaidLocationPatch.Init(config, locations, cloner, logger, seasonalBosses, seasonalConfig);
         new RaidLocationPatch().Enable();
+        new EndRaidRolePatch().Enable();
         GameStartPatch.Init(traderMessages);
         new GameStartPatch().Enable();
 

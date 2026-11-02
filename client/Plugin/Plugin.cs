@@ -15,7 +15,7 @@ namespace PPES.Client;
 /// Client fixes for the event content. Each patch is a no-op unless the problem it fixes is present.
 /// </summary>
 // same GUID as the server mod: the Forge checks that both DLLs declare the registered one
-[BepInPlugin("com.zezinho.pastpresenteventselector", "zezinho-PastPresentEventSelector", "1.7.2")]
+[BepInPlugin("com.zezinho.pastpresenteventselector", "zezinho-PastPresentEventSelector", "1.7.3")]
 [BepInDependency("com.morebotsapi.tacticaltoaster", BepInDependency.DependencyFlags.SoftDependency)]
 [BepInDependency("com.acidphantasm.botplacementsystem", BepInDependency.DependencyFlags.SoftDependency)]
 public class Plugin : BaseUnityPlugin
