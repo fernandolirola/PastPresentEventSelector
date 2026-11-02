@@ -2,7 +2,7 @@
 
 ## 1.7.3
 
-- **End-of-raid fix:** dying to a PPES faction bot (Cleanup Crew, Smugglers, Pillagers, Gus, Basmach) no longer makes the server reject the raid result (`/client/match/local/end`, `DeathCause.Role`). The faction role names are converted to their ids before the server reads the request.
+- **End-of-raid fix:** dying to a bot with a custom role (PPES factions Cleanup Crew, Smugglers, Pillagers, Gus, Basmach, or roles added by other client mods such as Black Division) no longer makes the server reject the raid result. PPES roles are converted to their ids before the server reads the request; roles the server cannot know are left out of the killer stats.
 
 ## 1.7.2
 
