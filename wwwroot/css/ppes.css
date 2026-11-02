@@ -109,6 +109,7 @@
 
 .ppes-grid {
     display: grid;
+    align-items: start;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
     gap: 12px;
 }
@@ -182,6 +183,13 @@
 
 .ppes-quests {
     position: relative;
+    min-width: 0;
+    max-width: 100%;
+    font-size: 0.74rem;
+    color: var(--spt-text-muted);
+}
+
+.ppes-quests > summary {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -190,37 +198,29 @@
     border: 1px solid var(--spt-border-strong);
     font-size: 0.74rem;
     color: var(--spt-text-muted);
-    cursor: help;
-    outline: none;
+    cursor: pointer;
 }
 
-.ppes-quests:hover,
-.ppes-quests:focus-within {
+.ppes-quests > summary:hover,
+.ppes-quests > summary:focus-visible {
     color: var(--spt-text);
     border-color: var(--spt-accent);
 }
 
 .ppes-quests-icon.mud-icon-root { font-size: 1rem; }
 
-/* the transparent padding bridges the gap so the pointer can reach the links */
 .ppes-quests-pop {
     display: none;
-    position: absolute;
-    right: -8px;
-    bottom: 100%;
-    z-index: 20;
-    padding-bottom: 8px;
-    cursor: default;
+    padding-top: 8px;
 }
 
-.ppes-quests:hover .ppes-quests-pop,
-.ppes-quests:focus-within .ppes-quests-pop { display: block; }
+.ppes-quests[open] > .ppes-quests-pop { display: block; }
 
 .ppes-quests-box {
     display: grid;
     gap: 4px;
-    min-width: 220px;
-    max-width: min(320px, 80vw);
+    min-width: 0;
+    max-width: 320px;
     padding: 10px 12px;
     border-radius: 8px;
     border: 1px solid var(--spt-border-strong);
@@ -242,6 +242,7 @@
     color: var(--spt-text);
     font-size: 0.85rem;
     text-decoration: none;
+    overflow-wrap: anywhere;
 }
 
 .ppes-quests-box a:hover { color: var(--spt-accent); text-decoration: underline; }
@@ -327,6 +328,7 @@
 /* ---------- tools: presets, rotation, notice ---------- */
 .ppes-tools {
     display: grid;
+    align-items: start;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
     gap: 12px;
 }
@@ -711,4 +713,88 @@
 .ppes-mech { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
 .ppes-mech-input { display: flex; align-items: center; gap: 6px; }
 .ppes-mech-input .ppes-number { width: 96px; }
+.ppes-behavior { display: grid; gap: 8px; padding-block: 8px; }
+.ppes-behavior .ppes-input { width: 100%; min-width: 0; }
+
+/* Sidebar workspace keeps the original panel theme and controls. */
+.ppes-app-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    padding: 16px 20px;
+    gap: 12px;
+    background: var(--spt-bg, #090b0e);
+}
+.ppes-app-header .ppes-hero-copy { min-width: 0; }
+.ppes-app-header .ppes-hero-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 16px; }
+.ppes-workspace { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 24px; align-items: start; }
+.ppes-sidebar { position: sticky; top: 120px; display: grid; gap: 18px; padding: 16px 10px; background: var(--ppes-card); }
+.ppes-nav-label { padding: 0 12px; color: var(--spt-text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.ppes-navigation { display: grid; gap: 5px; }
+.ppes-navigation button { display: flex; align-items: center; gap: 10px; border: 1px solid transparent; border-radius: 8px; padding: 11px 12px; background: transparent; color: var(--spt-text-muted); text-align: left; font: inherit; font-size: 0.87rem; cursor: pointer; }
+.ppes-navigation button .mud-icon-root { font-size: 1.15rem; flex: none; }
+.ppes-navigation button:hover { color: var(--spt-text); background: rgba(255,255,255,0.03); }
+.ppes-navigation button.ppes-selected,
+.ppes-chip.ppes-selected { color: var(--spt-accent); border-color: var(--spt-accent); background: var(--ppes-on-glow); }
+.ppes-sidebar-note { padding: 0 12px; }
+.ppes-main { display: grid; align-content: start; gap: 18px; min-width: 0; min-height: 0; }
+.ppes-main > .ppes-section { min-width: 0; }
+.ppes-main .ppes-preview { min-width: 0; }
+.ppes-main .ppes-table { overflow-x: auto; }
+.ppes-main .ppes-table .ppes-tr { grid-template-columns: minmax(120px,1fr) 64px minmax(150px,1.5fr) 85px; min-width: 480px; }
+.ppes-main .ppes-table-edit .ppes-tr { grid-template-columns: minmax(150px,1.2fr) 74px minmax(170px,2.4fr) 74px 64px; min-width: 630px; }
+.ppes-main .ppes-table .ppes-tr > :nth-child(4) { display: block; }
+.ppes-main .ppes-row-tags { min-width: 0; flex-wrap: wrap; max-width: min(320px, 55vw); }
+.ppes-main .ppes-card-foot > .ppes-quests[open] { flex-basis: 100%; }
+.ppes-settings-nav { display: flex; flex-wrap: wrap; gap: 8px; }
+.ppes-seasonal-workspace { display: grid; grid-template-columns: 210px minmax(0,1fr); gap: 18px; align-items: start; }
+.ppes-seasonal-picker { display: grid; gap: 8px; }
+.ppes-seasonal-pick { display: flex; justify-content: space-between; align-items: start; gap: 10px; padding: 14px 12px; border: 1px solid var(--spt-border); border-radius: 8px; background: var(--ppes-card); color: var(--spt-text); font: inherit; text-align: left; cursor: pointer; min-width: 0; }
+.ppes-seasonal-pick > span:first-child { min-width: 0; }
+.ppes-seasonal-pick strong { display: block; font-size: 0.88rem; font-weight: 600; }
+.ppes-seasonal-pick small { display: block; font-size: 0.72rem; color: var(--spt-text-muted); margin-top: 4px; }
+.ppes-seasonal-pick .ppes-status { font-size: 0.65rem; padding: 1px 5px; }
+.ppes-seasonal-pick.ppes-selected { border-color: var(--spt-accent); background: var(--ppes-on-glow); }
+.ppes-seasonal-detail { min-width: 0; }
+.ppes-seasonal-detail .ppes-card { padding: 20px; gap: 16px; }
+.ppes-seasonal-detail .ppes-parts { opacity: 1; }
+.ppes-seasonal-detail .ppes-behavior { padding: 12px; border: 1px solid var(--spt-border-strong); border-radius: 8px; }
+.ppes-option-list { display: grid; gap: 12px; padding-top: 14px; }
+.ppes-options { padding-top: 12px; border-top: 1px solid var(--spt-border); }
+.ppes-options summary { cursor: pointer; color: var(--spt-text); font-size: 0.85rem; }
+.ppes-mechanics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px),1fr)); gap: 16px 24px; }
+.ppes-mechanics-grid .ppes-mech { padding-top: 12px; margin-top: 0; border-top: 1px solid var(--spt-border); }
+.ppes-mechanics-grid .ppes-label { line-height: 1.6; }
+.ppes-mechanics-grid .ppes-tag { display: inline-block; margin-left: 0; white-space: normal; }
+.ppes-overview-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-items: start; gap: 16px; }
+.ppes-overview-wide { grid-column: 1 / -1; }
+.ppes-overview-event { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 0; border: 0; border-bottom: 1px solid var(--spt-border); background: transparent; color: var(--spt-text); font: inherit; text-align: left; font-size: 0.87rem; }
+button.ppes-overview-event { cursor: pointer; }
+button.ppes-overview-event:hover { color: var(--spt-accent); }
+.ppes-page button:focus-visible,
+.ppes-options summary:focus-visible { outline: 2px solid var(--spt-accent); outline-offset: 3px; }
+@media (max-width: 1150px) {
+    .ppes-workspace { grid-template-columns: 180px minmax(0,1fr); gap: 18px; }
+    .ppes-seasonal-workspace { grid-template-columns: minmax(0,1fr); }
+    .ppes-seasonal-picker { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    .ppes-seasonal-picker > .ppes-chip { grid-column: 1 / -1; justify-self: start; }
+}
+@media (max-width: 800px) {
+    .ppes-workspace { grid-template-columns: minmax(0,1fr); }
+    .ppes-sidebar { position: static; padding: 10px; }
+    .ppes-navigation { grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); }
+    .ppes-nav-label, .ppes-sidebar-note { display: none; }
+    .ppes-app-header { position: static; padding: 14px; }
+    .ppes-app-header .ppes-hero-actions { justify-content: flex-start; }
+    .ppes-overview-grid { grid-template-columns: minmax(0,1fr); }
+}
+@media (max-width: 480px) {
+    .ppes-container { padding: 12px !important; }
+    .ppes-seasonal-picker { grid-template-columns: minmax(0,1fr); }
+    .ppes-seasonal-detail .ppes-card { padding: 14px; }
+    .ppes-section-head > div:nth-child(2) { min-width: 0; }
+    .ppes-mechanics-grid { grid-template-columns: minmax(0,1fr); }
+    .ppes-main .ppes-panel { min-width: 0; }
+    .ppes-main .ppes-table .ppes-tr { min-width: 480px; }
+}
 .ppes-tag { margin-left: 6px; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; font-size: 0.72em; opacity: 0.7; white-space: nowrap; }

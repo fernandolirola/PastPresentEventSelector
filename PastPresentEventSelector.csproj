@@ -6,7 +6,7 @@
     <OutputType>Library</OutputType>
     <AssemblyName>PastPresentEventSelector</AssemblyName>
     <RootNamespace>PPES</RootNamespace>
-    <Version>1.7.1</Version>
+    <Version>1.7.2</Version>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
     <GenerateDependencyFile>false</GenerateDependencyFile>
@@ -33,6 +33,7 @@
     <EmbeddedResource Include="Quests\*.json" />
     <Content Remove="Quests\*.json" />
     <None Remove="tools\**" />
+    <Compile Remove="tools\**" />
     <None Remove="research\**" />
     <Content Remove="research\**" />
     <None Remove="PLAN-*.md" />

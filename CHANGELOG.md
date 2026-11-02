@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.7.2
+
+- **Ritual group arrival:** prepare ritual escorts before releasing their leader, then reuse the prepared profiles through native spawning. This avoids a lone priest starting while the remaining five prepare. Initial loading can still delay the group; preparation failure falls back to native spawning.
+
+- **UI fixes:** clean pages follow saves from other tabs; stale drafts cannot overwrite newer settings. Server-side Mechanics and seasonal rotation edits now show restart requirements. Quest lists expand by click or keyboard, mobile spawn tables retain escort controls, invalid new-spawn escorts are rejected, and clearing an escort restores its default without resetting other overrides. Raid previews honor map and Halloween free-Lab access, refresh when that preference changes, and highlight escort-only edits.
+- **Bot behavior with zombies:** choose Normal AI (the PPES default) or Hide from zombies (the game's behavior) in Halloween settings. Normal AI suppresses only the Halloween hiding layer and leaves infection, spawning, hostility and the active AI in control. Requires the updated client plugin; changes apply within 30 seconds of saving without a server restart.
+- **Sidebar workspace:** Overview, Seasonal events, Past events, Raid setup and Settings replace the long page while retaining the original theme and controls. Unsaved selections stay intact between menus. Seasonal events use a picker and detail panel, Halloween's secondary options can be expanded, and Mechanics, Rotation, Presets and In-game notice have separate settings menus.
+- **Card sizing:** panels use their own content height. Mechanics fields form a responsive grid, and the navigation reflows on smaller screens.
+
 ## 1.7.1
 
 - **Raider region editing:** removing a region now removes every Raider spawn definition tied to that region, including extraction, lever and patrol-triggered waves, without moving or deleting the waves in regions that remain.

@@ -96,13 +96,15 @@ public sealed class PresetData
     public List<string> Events { get; set; } = [];
 }
 
-/// <summary>Pieces of SPT's Halloween that can be switched on their own. Defaults follow SPT's stock config.</summary>
+/// <summary>Independent Halloween settings. Normal AI replaces forced hiding by default.</summary>
 public sealed class HalloweenParts
 {
     /// <summary>Halloween 2023: roaming Zryachiy, the priests' ritual and Vengeful Zryachiy.</summary>
     public bool Ritual { get; set; } = true;
     /// <summary>Halloween 2024: infected and map infection. SPT ships it off.</summary>
     public bool Zombies { get; set; }
+    /// <summary>Keep the game's Halloween hiding layer instead of normal patrol and combat AI.</summary>
+    public bool BotsHideFromZombies { get; set; }
     /// <summary>Adds configurable infected reinforcement waves after the stock finite schedule.</summary>
     public bool ZombieWaves { get; set; }
     public int ZombieWaveSizeMin { get; set; } = 3;
@@ -121,13 +123,16 @@ public sealed class HalloweenParts
 
     public HalloweenParts Clone() => new()
     {
-        Ritual = Ritual, Zombies = Zombies, ZombieWaves = ZombieWaves,
+        Ritual = Ritual, Zombies = Zombies, BotsHideFromZombies = BotsHideFromZombies, ZombieWaves = ZombieWaves,
         ZombieWaveSizeMin = ZombieWaveSizeMin, ZombieWaveSizeMax = ZombieWaveSizeMax,
         ZombieWaveIntervalMin = ZombieWaveIntervalMin, ZombieWaveIntervalMax = ZombieWaveIntervalMax,
         Cultists = Cultists, LabInfectedOnly = LabInfectedOnly, FreeLab = FreeLab, Outbreak2026 = Outbreak2026, Loot = Loot,
     };
 
     public bool SameAs(HalloweenParts other) =>
+        BotsHideFromZombies == other.BotsHideFromZombies && SameServerSettingsAs(other);
+
+    public bool SameServerSettingsAs(HalloweenParts other) =>
         Ritual == other.Ritual && Zombies == other.Zombies && ZombieWaves == other.ZombieWaves
         && ZombieWaveSizeMin == other.ZombieWaveSizeMin && ZombieWaveSizeMax == other.ZombieWaveSizeMax
         && ZombieWaveIntervalMin == other.ZombieWaveIntervalMin && ZombieWaveIntervalMax == other.ZombieWaveIntervalMax
@@ -213,6 +218,15 @@ public sealed class PpesConfig
     public bool HasEvent(string id) => Events.Contains(id, StringComparer.OrdinalIgnoreCase);
 
     public List<SpawnEdit> SpawnsOf(string mapId) => Spawns.GetValueOrDefault(mapId) ?? [];
+
+    /// <summary>Editable selection, excluding immediately saved display preferences and named presets.</summary>
+    public bool SameSelectionAs(PpesConfig other) =>
+        Events.SequenceEqual(other.Events, StringComparer.OrdinalIgnoreCase)
+        && Seasonal.Keys.Concat(other.Seasonal.Keys).All(id => ModeOf(id) == other.ModeOf(id))
+        && Rotation.Mode == other.Rotation.Mode && Rotation.Count == other.Rotation.Count && Rotation.Raids == other.Rotation.Raids
+        && SeasonalRotation.SameAs(other.SeasonalRotation) && SameSpawns(other)
+        && TraderMessage == other.TraderMessage && Halloween.SameAs(other.Halloween)
+        && Christmas.SameAs(other.Christmas) && AprilFools.SameAs(other.AprilFools) && Mechanics.SameAs(other.Mechanics);
 
     public bool SameSpawns(PpesConfig other) =>
         Spawns.Keys.Concat(other.Spawns.Keys).Distinct(StringComparer.OrdinalIgnoreCase)

@@ -140,7 +140,8 @@ public sealed class PreviewService(LocationTable locations, ICloner cloner, Seas
         var spawns = after.Values
             .Select(s => s with
             {
-                Changed = !before.TryGetValue(s.Role, out var old) || old.Chance != s.Chance || old.Zones != s.Zones || old.Groups != s.Groups,
+                Changed = !before.TryGetValue(s.Role, out var old) || old.Chance != s.Chance || old.Zones != s.Zones || old.Groups != s.Groups
+                    || old.EscortMin != s.EscortMin || old.EscortMax != s.EscortMax,
                 Custom = custom.Contains(s.Role),
             })
             .OrderByDescending(s => s.Changed).ThenByDescending(s => s.Chance).ThenBy(s => s.NameEn)
@@ -148,7 +149,9 @@ public sealed class PreviewService(LocationTable locations, ICloner cloner, Seas
 
         var airdrops = copy.AirdropParameters ?? [];
         bool? keycard = mapId is "laboratory" or "labyrinth"
-            ? !events.Contains("softcore", StringComparer.OrdinalIgnoreCase) && !(mapId == "laboratory" && events.Contains("freeLabs", StringComparer.OrdinalIgnoreCase))
+            ? (copy.AccessKeys?.Any() == true || copy.AccessKeysPvE?.Any() == true)
+                && !events.Contains("softcore", StringComparer.OrdinalIgnoreCase)
+                && !(mapId == "laboratory" && (events.Contains("freeLabs", StringComparer.OrdinalIgnoreCase) || (halloweenOn && halloween.FreeLab)))
             : null;
 
         return new RaidPreview(

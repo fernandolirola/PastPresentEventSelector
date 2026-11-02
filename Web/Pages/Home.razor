@@ -19,14 +19,11 @@
 <div class="ppes-page spt-page">
     <MudContainer MaxWidth="MaxWidth.False" Class="ppes-container pa-6">
 
-        <MudPaper Elevation="0" Class="ppes-hero spt-panel pa-5">
+        <MudPaper Elevation="0" Class="ppes-hero ppes-app-header spt-panel">
             <div class="ppes-hero-copy">
                 <MudText Typo="Typo.overline" Class="spt-kicker">zezinho's</MudText>
-                <MudText Typo="Typo.h3" Class="spt-title">Past &amp; Present Event Selector</MudText>
-                <MudText Typo="Typo.body2" Class="spt-subtitle mt-1">
-                    @T("Escolha quais eventos ficam ativos. Os sazonais seguem a data sozinhos, mas você pode ligar ou desligar qualquer um. Os eventos antigos foram recriados com os dados do servidor.",
-                       "Pick which events are active. Seasonal events follow the date on their own, but you can switch any of them on or off. Past events are recreated from server data.")
-                </MudText>
+                <MudText Typo="Typo.h5" Class="spt-title">Past &amp; Present Event Selector</MudText>
+
             </div>
             <div class="ppes-hero-actions">
                 <div class="ppes-lang" role="group" aria-label="Language">
@@ -34,7 +31,7 @@
                     <button class="@(IsPt ? "ppes-on" : "")" @onclick="@(() => SetLanguage("pt"))" title="Português">PT</button>
                 </div>
                 <div class="ppes-save-row">
-                    @if (IsDirty)
+                    @if (IsDirty || draftConflict)
                     {
                         <span class="ppes-dirty"><MudIcon Icon="@Icons.Material.Filled.Circle" Size="Size.Small" /> @T("Alterações não salvas", "Unsaved changes")</span>
                         <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="Discard">@T("Descartar", "Discard")</MudButton>
@@ -44,6 +41,26 @@
             </div>
         </MudPaper>
 
+        <div class="ppes-workspace">
+            <aside class="ppes-sidebar spt-panel">
+                <span class="ppes-nav-label">@T("Configura\u00e7\u00e3o", "Configuration")</span>
+                <nav class="ppes-navigation" aria-label="@T("Menu principal do PPES", "PPES main menu")">
+                    @foreach (var destination in Sections)
+                    {
+                        <button type="button" class="@(activeSection == destination.Id ? "ppes-selected" : "")" aria-current="@(activeSection == destination.Id ? "page" : null)" @onclick="@(() => activeSection = destination.Id)">
+                            <MudIcon Icon="@(destination.Icon)" /><span>@T(destination.Pt, destination.En)</span>
+                        </button>
+                    }
+                </nav>
+                <span class="ppes-hint ppes-sidebar-note">@T("Trocar de menu preserva as altera\u00e7\u00f5es n\u00e3o salvas.", "Switching menus keeps your unsaved changes.")</span>
+            </aside>
+            <div class="ppes-main" id="ppes-main" role="region" aria-label="@T("Conte\u00fado da configura\u00e7\u00e3o", "Configuration content")">
+        @if (draftConflict)
+        {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                @T("A configura\u00e7\u00e3o foi salva em outra p\u00e1gina. Suas altera\u00e7\u00f5es continuam aqui; use Descartar para carregar a vers\u00e3o salva antes de editar novamente.", "Another page saved the configuration. Your draft is still here; use Discard to load the saved version before editing again.")
+            </MudAlert>
+        }
         @if (PendingRestart.Count > 0)
         {
             <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
@@ -57,7 +74,46 @@
             <MudAlert Severity="@(note.Warning ? Severity.Warning : Severity.Info)" Dense="true">@T(note.Pt, note.En)</MudAlert>
         }
 
+        @if (activeSection == "overview")
+        {
+            <section class="ppes-section" aria-labelledby="ppes-overview-title">
+                <div class="ppes-section-head"><MudIcon Icon="@Icons.Material.Filled.Dashboard" Class="ppes-accent" /><div>
+                    <MudText Typo="Typo.h5" id="ppes-overview-title">@T("Vis\u00e3o geral", "Overview")</MudText>
+                    <MudText Typo="Typo.body2" Class="spt-muted">@T("Confira sua sele\u00e7\u00e3o antes da pr\u00f3xima raid. A pr\u00e9via inclui altera\u00e7\u00f5es ainda n\u00e3o salvas.", "Check your selection before the next raid. This overview includes unsaved changes.")</MudText>
+                </div></div>
+                <div class="ppes-overview-grid">
+                    <MudPaper Elevation="0" Class="ppes-panel spt-panel">
+                        <MudText Typo="Typo.h6">@T("Eventos sazonais", "Seasonal events")</MudText>
+                        @foreach (var item in EventCatalog.Seasonal)
+                        {
+                            <button type="button" class="ppes-overview-event" @onclick="@(() => OpenSeasonal(item.Id))"><span>@T(item.NamePt, item.NameEn)</span><span class="ppes-status @(IsSeasonalActive(working, item.Id) ? "ppes-status-on" : "")">@(IsSeasonalActive(working, item.Id) ? T("Ativo", "Active") : T("Desligado", "Off"))</span></button>
+                        }
+                        <span class="ppes-hint">@T("No modo Autom\u00e1tico, os sazonais seguem suas datas.", "In Auto mode, seasonal events follow their dates.")</span>
+                    </MudPaper>
+                    <MudPaper Elevation="0" Class="ppes-panel spt-panel">
+                        <MudText Typo="Typo.h6">@T("Eventos antigos selecionados", "Selected past events")</MudText>
+                        @if (working.Events.Count == 0)
+                        {
+                            <span class="ppes-hint">@T("Nenhum evento escolhido. Escolha eventos ou aplique um preset.", "No events selected. Choose events or apply a preset.")</span>
+                        }
+                        @foreach (var id in working.Events)
+                        {
+                            <span class="ppes-overview-event"><span>@EventCatalog.Past(id)?.Name</span><span class="ppes-hint">@(EventCatalog.Past(id)?.NeedsRestart == true ? T("Reiniciar servidor", "Server restart") : T("Pr\u00f3xima raid", "Next raid"))</span></span>
+                        }
+                        <div class="ppes-row"><button type="button" class="ppes-chip" @onclick="@(() => activeSection = "events")">@T("Escolher eventos", "Browse events")</button><button type="button" class="ppes-chip" @onclick="@(() => OpenSettings("presets"))">Presets</button></div>
+                    </MudPaper>
+                    <MudPaper Elevation="0" Class="ppes-panel spt-panel ppes-overview-wide">
+                        <div class="ppes-panel-head"><MudIcon Icon="@Icons.Material.Filled.Map" Class="ppes-accent" /><MudText Typo="Typo.h6">@T("Antes de entrar na raid", "Before you raid")</MudText></div>
+                        <span class="ppes-hint">@T("Eventos de boss e airdrop valem na pr\u00f3xima raid. Sazonais, quests e regras do servidor precisam reiniciar. O comportamento com zumbis vale em at\u00e9 30 segundos com o plugin do cliente.", "Boss and airdrop events apply next raid. Seasonal events, quests and server rules need a restart. Zombie behavior applies within 30 seconds with the client plugin.")</span>
+                        <div class="ppes-row"><button type="button" class="ppes-chip" @onclick="@(() => activeSection = "raid")">@T("Abrir configura\u00e7\u00e3o da raid", "Open raid setup")</button></div>
+                    </MudPaper>
+                </div>
+            </section>
+        }
+
         @* ---------- seasonal ---------- *@
+        @if (activeSection == "seasonal")
+        {
         <section class="ppes-section">
             <div class="ppes-section-head">
                 <MudIcon Icon="@Icons.Material.Filled.Event" Class="ppes-accent" />
@@ -77,39 +133,22 @@
                 </MudAlert>
             }
 
-            <MudPaper Elevation="0" Class="ppes-panel spt-panel mb-3">
-                <div class="ppes-panel-head">
-                    <MudIcon Icon="@Icons.Material.Filled.Shuffle" Class="ppes-accent" />
-                    <MudText Typo="Typo.h6">@T("Rotação dos sazonais", "Seasonal rotation")</MudText>
-                </div>
-                <MudText Typo="Typo.body2" Class="spt-muted">@T("Em vez do calendário, um evento sazonal sorteado fica ligado em cada período, e às vezes nenhum, para dar uma pausa. Eventos em Desligado ficam fora do sorteio. O SPT só escolhe os sazonais ao iniciar, então um período novo vale depois de reiniciar o servidor.", "Instead of the calendar, one random seasonal event is on each period, and sometimes none for a break. Events set to Off stay out of the draw. SPT only picks seasonal events at startup, so a new period applies after a server restart.")</MudText>
-                <div class="ppes-row">
-                    <span class="ppes-label">@T("Sortear:", "Draw:")</span>
-                    <div class="ppes-segmented" role="radiogroup">
-                        @foreach (var (value, pt, en) in SeasonalRotationModes)
-                        {
-                            <button role="radio" aria-checked="@(working.SeasonalRotation.Mode == value)" class="@(working.SeasonalRotation.Mode == value ? "ppes-on" : "")" @onclick="@(() => working.SeasonalRotation.Mode = value)">@T(pt, en)</button>
-                        }
-                    </div>
-                    @if (working.SeasonalRotation.Mode != SeasonalRotationMode.Off)
-                    {
-                        <span class="ppes-label">@T("Chance de pausa:", "Break chance:")</span>
-                        <input class="ppes-input ppes-number" type="number" min="0" max="90" aria-label="@T("Chance de pausa", "Break chance")"
-                               value="@working.SeasonalRotation.BreakChance" @onchange="@(e => working.SeasonalRotation.BreakChance = Math.Clamp(int.TryParse(e.Value?.ToString(), out var n) ? n : 0, 0, 90))" />
-                        <span class="ppes-label">%</span>
-                    }
-                </div>
-                @if (EventSchedule.SeasonalRotation(working, Today) is { Active: true } seasonalDraw)
-                {
-                    <div class="ppes-rotation">
-                        <span class="ppes-hint">@T($"Período atual, até {FormatDate(seasonalDraw.Until.AddDays(-1))}:", $"This period, until {FormatDate(seasonalDraw.Until.AddDays(-1))}:")</span>
-                        <span class="ppes-pill ppes-pill-on">@(seasonalDraw.Pick is { } pick ? SeasonalName(pick) : T("pausa, nenhum evento", "break, no event"))</span>
-                    </div>
-                }
-            </MudPaper>
 
-            <div class="ppes-grid ppes-grid-seasonal">
-                @foreach (var s in EventCatalog.Seasonal)
+
+            <div class="ppes-seasonal-workspace">
+                <nav class="ppes-seasonal-picker" aria-label="@T("Escolher evento sazonal", "Choose seasonal event")">
+                    @foreach (var item in EventCatalog.Seasonal)
+                    {
+                        <button type="button" class="ppes-seasonal-pick @(selectedSeasonal == item.Id ? "ppes-selected" : "")" aria-current="@(selectedSeasonal == item.Id ? "page" : null)" @onclick="@(() => selectedSeasonal = item.Id)">
+                            <span><strong>@T(item.NamePt, item.NameEn)</strong><small>@WindowText(item.Id)</small></span>
+                            <span class="ppes-status @(IsSeasonalActive(working, item.Id) ? "ppes-status-on" : "")">@(IsSeasonalActive(working, item.Id) ? T("Ativo", "Active") : T("Desligado", "Off"))</span>
+                        </button>
+                    }
+                    <button type="button" class="ppes-chip" @onclick="@(() => OpenSettings("rotation"))">@T("Rota\u00e7\u00e3o dos sazonais", "Seasonal rotation")</button>
+                </nav>
+                <div class="ppes-seasonal-detail">
+
+                @foreach (var s in EventCatalog.Seasonal.Where(s => s.Id == selectedSeasonal))
                 {
                     var mode = working.ModeOf(s.Id);
                     var active = IsSeasonalActive(working, s.Id);
@@ -125,7 +164,7 @@
                         <div class="ppes-segmented" role="radiogroup">
                             @foreach (var (value, pt, en) in Modes)
                             {
-                                <button role="radio" aria-checked="@(mode == value)" class="@(mode == value ? "ppes-on" : "")" @onclick="@(() => SetMode(s.Id, value))">@T(pt, en)</button>
+                                <button role="radio" aria-checked="@(mode == value ? "true" : "false")" class="@(mode == value ? "ppes-on" : "")" @onclick="@(() => SetMode(s.Id, value))">@T(pt, en)</button>
                             }
                         </div>
                         @if (PartsOf(s.Id) is { Count: > 0 } partList)
@@ -138,43 +177,38 @@
                                         <strong>@(working.Halloween.ZombiesOn ? T("Aparecimento de zumbis: LIGADO", "Zombie spawning: ON") : T("Aparecimento de zumbis: DESLIGADO", "Zombie spawning: OFF"))</strong>
                                         <span>@HalloweenZombieStatus()</span>
                                     </div>
-                                }
-                                @foreach (var part in partList)
-                                {
-                                    var partOn = GetPart(part.Key);
-                                    var waitingForZombies = part.Key is "h.labonly" or "h.waves" && !working.Halloween.ZombiesOn;
-                                    <label class="@($"ppes-part {(waitingForZombies ? "ppes-part-waiting" : "")}")">
-                                        <input type="checkbox" checked="@partOn" @onchange="@(e => SetPart(part.Key, e.Value is true))" />
-                                        <span class="ppes-part-copy">
-                                            <span class="ppes-part-name">@T(part.Pt, part.En)</span>
-                                            <span class="ppes-part-hint">@T(part.PtHint, part.EnHint)</span>
-                                            @if (waitingForZombies)
-                                            {
-                                                <span class="ppes-part-dependency">@T("Aguardando: ligue Zumbis e infectados ou Surto de 2026.", "Waiting: enable Zombies and infected or 2026 outbreak.")</span>
-                                            }
-                                        </span>
+                                    <label class="ppes-behavior">
+                                        <span class="ppes-part-name">@T("Comportamento dos bots com zumbis", "Bot behavior with zombies")</span>
+                                        <select class="ppes-input" value="@(working.Halloween.BotsHideFromZombies ? "hide" : "normal")"
+                                                @onchange="@(e => working.Halloween.BotsHideFromZombies = e.Value?.ToString() == "hide")">
+                                            <option value="normal">@T("IA normal (patrulha e combate)", "Normal AI (patrol and combat)")</option>
+                                            <option value="hide">@T("Esconder dos zumbis (padrão do jogo)", "Hide from zombies (game default)")</option>
+                                        </select>
+                                        <span class="ppes-part-hint">@T("IA normal remove a ordem de se esconder do Halloween. Movimento e combate seguem a IA e as regras de hostilidade ativas. Requer o plugin do cliente; vale em até 30 segundos após salvar, sem reiniciar.", "Normal AI removes the Halloween hiding order. Movement and combat follow the active AI and hostility rules. Requires the client plugin; applies within 30 seconds of saving, without a restart.")</span>
                                     </label>
-                                    @if (part.Key == "h.waves" && partOn)
+                                }
+                                @if (s.Id == "halloween")
+                                {
+                                    @foreach (var part in partList.Where(p => p.Key is "h.zombies" or "h.waves"))
                                     {
-                                        <div class="ppes-wave-settings">
-                                            <span class="ppes-wave-title">@T("Aleatório quando o mínimo e o máximo são diferentes", "Random when minimum and maximum differ")</span>
-                                            <label>
-                                                <span>@T("Zumbis por onda", "Zombies per wave")</span>
-                                                <span class="ppes-wave-range">
-                                                    <input class="ppes-input ppes-number" type="number" min="1" max="20" value="@working.Halloween.ZombieWaveSizeMin" @onchange="@(e => SetZombieWaveNumber("sizeMin", e.Value?.ToString()))" />
-                                                    <span>@T("até", "to")</span>
-                                                    <input class="ppes-input ppes-number" type="number" min="1" max="20" value="@working.Halloween.ZombieWaveSizeMax" @onchange="@(e => SetZombieWaveNumber("sizeMax", e.Value?.ToString()))" />
-                                                </span>
-                                            </label>
-                                            <label>
-                                                <span>@T("Minutos entre ondas", "Minutes between waves")</span>
-                                                <span class="ppes-wave-range">
-                                                    <input class="ppes-input ppes-number" type="number" min="1" max="30" value="@working.Halloween.ZombieWaveIntervalMin" @onchange="@(e => SetZombieWaveNumber("intervalMin", e.Value?.ToString()))" />
-                                                    <span>@T("até", "to")</span>
-                                                    <input class="ppes-input ppes-number" type="number" min="1" max="30" value="@working.Halloween.ZombieWaveIntervalMax" @onchange="@(e => SetZombieWaveNumber("intervalMax", e.Value?.ToString()))" />
-                                                </span>
-                                            </label>
+                                        @SeasonalOption(part)
+                                    }
+                                    <details class="ppes-options" open="@expandedSeasonal.Contains(s.Id)">
+                                        <summary @onclick="@(() => ToggleSeasonalDetails(s.Id))">@T("Ritual, cultistas e regras do mapa", "Ritual, cultists and map rules")</summary>
+                                        <div class="ppes-option-list">
+                                            @foreach (var part in partList.Where(p => p.Key is not ("h.zombies" or "h.waves")))
+                                            {
+                                                @SeasonalOption(part)
+                                            }
                                         </div>
+                                    </details>
+                                }
+                                else
+                                {
+                                    @foreach (var part in partList) { @SeasonalOption(part) }
+                                    @if (s.Id is "christmas" or "newyears")
+                                    {
+                                        <span class="ppes-hint">@T("Natal e Ano Novo compartilham estas op\u00e7\u00f5es.", "Christmas and New Year share these options.")</span>
                                     }
                                 }
                             </div>
@@ -186,16 +220,32 @@
                     </MudPaper>
                 }
             </div>
+            </div>
         </section>
+        }
 
-        @* ---------- presets, rotation, message ---------- *@
-        <section class="ppes-tools">
+        @if (activeSection == "settings")
+        {
+        <section class="ppes-section" aria-labelledby="ppes-settings-title">
+            <div class="ppes-section-head"><MudIcon Icon="@Icons.Material.Filled.Tune" Class="ppes-accent" /><div>
+                <MudText Typo="Typo.h5" id="ppes-settings-title">@T("Configura\u00e7\u00f5es", "Settings")</MudText>
+                <MudText Typo="Typo.body2" Class="spt-muted">@T("Mec\u00e2nicas, rota\u00e7\u00e3o e prefer\u00eancias, cada uma no seu lugar.", "Mechanics, automation and preferences, each in its own place.")</MudText>
+            </div></div>
+            <nav class="ppes-settings-nav" aria-label="@T("Categorias de configura\u00e7\u00e3o", "Settings categories")">
+                @foreach (var tab in SettingsTabs)
+                {
+                    <button type="button" class="ppes-chip @(settingsTab == tab.Id ? "ppes-selected" : "")" aria-current="@(settingsTab == tab.Id ? "page" : null)" @onclick="@(() => settingsTab = tab.Id)">@T(tab.Pt, tab.En)</button>
+                }
+            </nav>
+            @if (settingsTab == "mechanics")
+            {
             <MudPaper Elevation="0" Class="ppes-panel spt-panel">
                 <div class="ppes-panel-head">
                     <MudIcon Icon="@Icons.Material.Filled.Tune" Class="ppes-accent" />
                     <MudText Typo="Typo.h6">@T("Mecânicas", "Mechanics")</MudText>
                 </div>
                 <MudText Typo="Typo.body2" Class="spt-muted">@T("Valores exatos; o padrão é o do jogo. As travas valem no próximo raide e precisam do plugin do cliente. O resto precisa reiniciar o servidor.", "Exact values; the default is the game's. Jams apply from the next raid and need the client plugin. The rest need a server restart.")</MudText>
+                <div class="ppes-mechanics-grid">
                 @foreach (var row in MechanicRows)
                 {
                     <div class="ppes-mech">
@@ -208,7 +258,11 @@
                         <span class="ppes-hint">@T(row.HintPt, row.HintEn)</span>
                     </div>
                 }
+                </div>
             </MudPaper>
+            }
+            @if (settingsTab == "presets")
+            {
             <MudPaper Elevation="0" Class="ppes-panel spt-panel">
                 <div class="ppes-panel-head">
                     <MudIcon Icon="@Icons.Material.Filled.Bookmarks" Class="ppes-accent" />
@@ -233,7 +287,9 @@
                     <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" Disabled="@string.IsNullOrWhiteSpace(presetName)" OnClick="SavePreset">@T("Salvar seleção atual", "Save current picks")</MudButton>
                 </div>
             </MudPaper>
-
+            }
+            @if (settingsTab == "rotation")
+            {
             <MudPaper Elevation="0" Class="ppes-panel spt-panel">
                 <div class="ppes-panel-head">
                     <MudIcon Icon="@Icons.Material.Filled.Autorenew" Class="ppes-accent" />
@@ -245,7 +301,7 @@
                     <div class="ppes-segmented" role="radiogroup">
                         @foreach (var (value, pt, en) in RotationModes)
                         {
-                            <button role="radio" aria-checked="@(working.Rotation.Mode == value)" class="@(working.Rotation.Mode == value ? "ppes-on" : "")" @onclick="@(() => working.Rotation.Mode = value)">@T(pt, en)</button>
+                            <button role="radio" aria-checked="@(working.Rotation.Mode == value ? "true" : "false")" class="@(working.Rotation.Mode == value ? "ppes-on" : "")" @onclick="@(() => working.Rotation.Mode = value)">@T(pt, en)</button>
                         }
                     </div>
                     @if (working.Rotation.Mode == RotationMode.Raids)
@@ -277,7 +333,39 @@
                     </div>
                 }
             </MudPaper>
-
+            <MudPaper Elevation="0" Class="ppes-panel spt-panel mb-3">
+                <div class="ppes-panel-head">
+                    <MudIcon Icon="@Icons.Material.Filled.Shuffle" Class="ppes-accent" />
+                    <MudText Typo="Typo.h6">@T("Rotação dos sazonais", "Seasonal rotation")</MudText>
+                </div>
+                <MudText Typo="Typo.body2" Class="spt-muted">@T("Em vez do calendário, um evento sazonal sorteado fica ligado em cada período, e às vezes nenhum, para dar uma pausa. Eventos em Desligado ficam fora do sorteio. O SPT só escolhe os sazonais ao iniciar, então um período novo vale depois de reiniciar o servidor.", "Instead of the calendar, one random seasonal event is on each period, and sometimes none for a break. Events set to Off stay out of the draw. SPT only picks seasonal events at startup, so a new period applies after a server restart.")</MudText>
+                <div class="ppes-row">
+                    <span class="ppes-label">@T("Sortear:", "Draw:")</span>
+                    <div class="ppes-segmented" role="radiogroup">
+                        @foreach (var (value, pt, en) in SeasonalRotationModes)
+                        {
+                            <button role="radio" aria-checked="@(working.SeasonalRotation.Mode == value ? "true" : "false")" class="@(working.SeasonalRotation.Mode == value ? "ppes-on" : "")" @onclick="@(() => working.SeasonalRotation.Mode = value)">@T(pt, en)</button>
+                        }
+                    </div>
+                    @if (working.SeasonalRotation.Mode != SeasonalRotationMode.Off)
+                    {
+                        <span class="ppes-label">@T("Chance de pausa:", "Break chance:")</span>
+                        <input class="ppes-input ppes-number" type="number" min="0" max="90" aria-label="@T("Chance de pausa", "Break chance")"
+                               value="@working.SeasonalRotation.BreakChance" @onchange="@(e => working.SeasonalRotation.BreakChance = Math.Clamp(int.TryParse(e.Value?.ToString(), out var n) ? n : 0, 0, 90))" />
+                        <span class="ppes-label">%</span>
+                    }
+                </div>
+                @if (EventSchedule.SeasonalRotation(working, Today) is { Active: true } seasonalDraw)
+                {
+                    <div class="ppes-rotation">
+                        <span class="ppes-hint">@T($"Período atual, até {FormatDate(seasonalDraw.Until.AddDays(-1))}:", $"This period, until {FormatDate(seasonalDraw.Until.AddDays(-1))}:")</span>
+                        <span class="ppes-pill ppes-pill-on">@(seasonalDraw.Pick is { } pick ? SeasonalName(pick) : T("pausa, nenhum evento", "break, no event"))</span>
+                    </div>
+                }
+            </MudPaper>
+            }
+            @if (settingsTab == "notice")
+            {
             <MudPaper Elevation="0" Class="ppes-panel spt-panel">
                 <div class="ppes-panel-head">
                     <MudIcon Icon="@Icons.Material.Filled.Mail" Class="ppes-accent" />
@@ -289,9 +377,13 @@
                        "When you log in, Fence sends a message with rumors about the active events. It only sends again when the events change.")
                 </MudText>
             </MudPaper>
+            }
         </section>
+        }
 
         @* ---------- past events ---------- *@
+        @if (activeSection == "events")
+        {
         <section class="ppes-section">
             <div class="ppes-section-head">
                 <MudIcon Icon="@Icons.Material.Filled.History" Class="ppes-accent" />
@@ -357,7 +449,10 @@
                 </div>
             }
         </section>
+        }
         @* ---------- raid preview ---------- *@
+        @if (activeSection == "raid")
+        {
         <section class="ppes-section">
             <div class="ppes-section-head">
                 <MudIcon Icon="@Icons.Material.Filled.Map" Class="ppes-accent" />
@@ -374,7 +469,7 @@
             <div class="ppes-maps" role="tablist">
                 @foreach (var m in EventDetails.Maps)
                 {
-                    <button role="tab" aria-selected="@(previewMap == m.Id)" class="@($"{(previewMap == m.Id ? "ppes-on" : "")} {(MapTouched(m.Id) ? "ppes-map-touched" : "")}")" @onclick="@(() => SelectPreviewMap(m.Id))">@T(m.NamePt, m.NameEn)@if (working.SpawnsOf(m.Id).Count > 0){<MudIcon Icon="@Icons.Material.Filled.Edit" Class="ppes-map-edited" />}</button>
+                    <button role="tab" aria-selected="@(previewMap == m.Id ? "true" : "false")" class="@($"{(previewMap == m.Id ? "ppes-on" : "")} {(MapTouched(m.Id) ? "ppes-map-touched" : "")}")" @onclick="@(() => SelectPreviewMap(m.Id))">@T(m.NamePt, m.NameEn)@if (working.SpawnsOf(m.Id).Count > 0){<MudIcon Icon="@Icons.Material.Filled.Edit" Class="ppes-map-edited" />}</button>
                 }
             </div>
             @if (Preview is { } preview)
@@ -521,11 +616,85 @@
                 <MudAlert Severity="Severity.Warning" Dense="true">@previewError</MudAlert>
             }
         </section>
+        }
 
+            </div>
+        </div>
     </MudContainer>
 </div>
 
 @code {
+
+    private string activeSection = "overview";
+    private string settingsTab = "mechanics";
+    private string selectedSeasonal = "halloween";
+    private readonly HashSet<string> expandedSeasonal = [];
+    private static readonly (string Id, string Pt, string En, string Icon)[] Sections =
+    [
+        ("overview", "Vis\u00e3o geral", "Overview", Icons.Material.Filled.Dashboard),
+        ("seasonal", "Eventos sazonais", "Seasonal events", Icons.Material.Filled.Event),
+        ("events", "Eventos antigos", "Past events", Icons.Material.Filled.History),
+        ("raid", "Configurar raid", "Raid setup", Icons.Material.Filled.Map),
+        ("settings", "Configura\u00e7\u00f5es", "Settings", Icons.Material.Filled.Tune),
+    ];
+    private static readonly (string Id, string Pt, string En)[] SettingsTabs =
+    [
+        ("mechanics", "Mec\u00e2nicas", "Mechanics"),
+        ("rotation", "Rota\u00e7\u00e3o", "Rotation"),
+        ("presets", "Presets", "Presets"),
+        ("notice", "Aviso no jogo", "In-game notice"),
+    ];
+    private void OpenSettings(string tab) { settingsTab = tab; activeSection = "settings"; }
+    private void OpenSeasonal(string id) { selectedSeasonal = id; activeSection = "seasonal"; }
+    private void ToggleSeasonalDetails(string id)
+    {
+        if (!expandedSeasonal.Add(id)) expandedSeasonal.Remove(id);
+    }
+
+    private RenderFragment SeasonalOption(PartDef part) => builder =>
+    {
+        var partOn = GetPart(part.Key);
+        var waitingForZombies = part.Key is "h.labonly" or "h.waves" && !working.Halloween.ZombiesOn;
+
+        RenderFragment content = @<text>
+                                    <label class="@($"ppes-part {(waitingForZombies ? "ppes-part-waiting" : "")}")">
+                                        <input type="checkbox" checked="@partOn" @onchange="@(e => SetPart(part.Key, e.Value is true))" />
+                                        <span class="ppes-part-copy">
+                                            <span class="ppes-part-name">@T(part.Pt, part.En)</span>
+                                            <span class="ppes-part-hint">@T(part.PtHint, part.EnHint)</span>
+                                            @if (waitingForZombies)
+                                            {
+                                                <span class="ppes-part-dependency">@T("Aguardando: ligue Zumbis e infectados ou Surto de 2026.", "Waiting: enable Zombies and infected or 2026 outbreak.")</span>
+                                            }
+                                        </span>
+                                    </label>
+                                    @if (part.Key == "h.waves" && partOn)
+                                    {
+                                        <div class="ppes-wave-settings">
+                                            <span class="ppes-wave-title">@T("Aleatório quando o mínimo e o máximo são diferentes", "Random when minimum and maximum differ")</span>
+                                            <label>
+                                                <span>@T("Zumbis por onda", "Zombies per wave")</span>
+                                                <span class="ppes-wave-range">
+                                                    <input class="ppes-input ppes-number" type="number" min="1" max="20" value="@working.Halloween.ZombieWaveSizeMin" @onchange="@(e => SetZombieWaveNumber("sizeMin", e.Value?.ToString()))" />
+                                                    <span>@T("até", "to")</span>
+                                                    <input class="ppes-input ppes-number" type="number" min="1" max="20" value="@working.Halloween.ZombieWaveSizeMax" @onchange="@(e => SetZombieWaveNumber("sizeMax", e.Value?.ToString()))" />
+                                                </span>
+                                            </label>
+                                            <label>
+                                                <span>@T("Minutos entre ondas", "Minutes between waves")</span>
+                                                <span class="ppes-wave-range">
+                                                    <input class="ppes-input ppes-number" type="number" min="1" max="30" value="@working.Halloween.ZombieWaveIntervalMin" @onchange="@(e => SetZombieWaveNumber("intervalMin", e.Value?.ToString()))" />
+                                                    <span>@T("até", "to")</span>
+                                                    <input class="ppes-input ppes-number" type="number" min="1" max="30" value="@working.Halloween.ZombieWaveIntervalMax" @onchange="@(e => SetZombieWaveNumber("intervalMax", e.Value?.ToString()))" />
+                                                </span>
+                                            </label>
+                                        </div>
+                                    }
+
+        </text>;
+        content(builder);
+    };
+
     private static readonly (string Value, string Pt, string En)[] Modes =
     [
         (SeasonalMode.Auto, "Automático", "Auto"),
@@ -569,6 +738,9 @@
     private static readonly string[] MonthsPt = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
     private PpesConfig working = new();
+    private PpesConfig draftBaseline = new();
+    private bool savingDraft;
+    private bool draftConflict;
     private string filter = "all";
     private string search = "";
     private string mapFilter = "";
@@ -589,19 +761,7 @@
     private static DateTime Now => DateTimeOffset.Now.DateTime;
     private static DateTime Today => Now.Date;
 
-    private bool IsDirty =>
-        !working.Events.SequenceEqual(Config.Saved.Events, StringComparer.OrdinalIgnoreCase)
-        || EventCatalog.Seasonal.Any(s => working.ModeOf(s.Id) != Config.Saved.ModeOf(s.Id))
-        || working.Rotation.Mode != Config.Saved.Rotation.Mode
-        || working.Rotation.Count != Config.Saved.Rotation.Count
-        || working.Rotation.Raids != Config.Saved.Rotation.Raids
-        || !working.SeasonalRotation.SameAs(Config.Saved.SeasonalRotation)
-        || !working.SameSpawns(Config.Saved)
-        || working.TraderMessage != Config.Saved.TraderMessage
-        || !working.Halloween.SameAs(Config.Saved.Halloween)
-        || !working.Christmas.SameAs(Config.Saved.Christmas)
-        || !working.AprilFools.SameAs(Config.Saved.AprilFools)
-        || !working.Mechanics.SameAs(Config.Saved.Mechanics);
+    private bool IsDirty => !working.SameSelectionAs(draftBaseline);
 
     private sealed record MechRow(string Key, string Pt, string En, string ScopePt, string ScopeEn, string Unit, double Min, double Max, double Step, string HintPt, string HintEn);
 
@@ -815,12 +975,19 @@
                 .Where(s => IsSeasonalActive(saved, s.Id) != IsSeasonalActive(applied, s.Id))
                 .Select(s => T(s.NamePt, s.NameEn))
                 .ToList();
-            if (IsSeasonalActive(saved, "halloween") && !saved.Halloween.SameAs(applied.Halloween))
+            if (IsSeasonalActive(saved, "halloween") && !saved.Halloween.SameServerSettingsAs(applied.Halloween))
                 names.Add(T("Partes do Halloween", "Halloween parts"));
             if ((IsSeasonalActive(saved, "christmas") || IsSeasonalActive(saved, "newyears")) && !saved.Christmas.SameAs(applied.Christmas))
                 names.Add(T("Partes do Natal e Ano Novo", "Christmas and New Year parts"));
             if (IsSeasonalActive(saved, "aprilfools") && !saved.AprilFools.SameAs(applied.AprilFools))
                 names.Add(T("Partes do 1º de abril", "April Fools parts"));
+            if (saved.Mechanics.RitualExitTime != applied.Mechanics.RitualExitTime
+                || saved.Mechanics.RitualStamina != applied.Mechanics.RitualStamina
+                || saved.Mechanics.ToxinHydration != applied.Mechanics.ToxinHydration
+                || saved.Mechanics.ToxinHearing != applied.Mechanics.ToxinHearing)
+                names.Add(T("Efeitos do ritual e da infec\u00e7\u00e3o", "Ritual and infection effects"));
+            if (!saved.SeasonalRotation.SameAs(applied.SeasonalRotation))
+                names.Add(T("Rota\u00e7\u00e3o dos sazonais", "Seasonal rotation"));
             names.AddRange(EventCatalog.PastEvents
                 .Where(e => e.NeedsRestart && saved.HasEvent(e.Id) != applied.HasEvent(e.Id))
                 .Select(e => e.Name));
@@ -836,7 +1003,7 @@
             var edits = working.SpawnsOf(previewMap);
             var h = working.Halloween;
             var key = previewMap + "|" + string.Join(",", events) + "|" + string.Join(";", edits.Select(e => $"{e.Role}:{e.Remove}:{e.Chance}:{e.Zones}:{e.Escort}"))
-                + $"|h:{working.ModeOf("halloween")}:{h.ZombiesOn}:{h.ZombieWaves}:{h.ZombieWaveSizeMin}:{h.ZombieWaveSizeMax}:{h.ZombieWaveIntervalMin}:{h.ZombieWaveIntervalMax}:{h.Outbreak2026}";
+                + $"|h:{IsSeasonalActive(working, "halloween")}:{h.FreeLab}:{h.ZombiesOn}:{h.ZombieWaves}:{h.ZombieWaveSizeMin}:{h.ZombieWaveSizeMax}:{h.ZombieWaveIntervalMin}:{h.ZombieWaveIntervalMax}:{h.Outbreak2026}";
             if (previewCache is { } cached && cached.Key == key) return cached.Value;
             try
             {
@@ -855,11 +1022,20 @@
 
     protected override void OnInitialized()
     {
-        working = Config.Saved.Clone();
+        Discard();
         Config.Changed += OnConfigChanged;
     }
 
-    private void OnConfigChanged() => InvokeAsync(StateHasChanged);
+    private void OnConfigChanged() => InvokeAsync(() =>
+    {
+        if (!savingDraft)
+        {
+            if (!IsDirty) Discard();
+            else draftConflict = !Config.Saved.SameSelectionAs(draftBaseline);
+        }
+        previewCache = null;
+        StateHasChanged();
+    });
 
     public void Dispose() => Config.Changed -= OnConfigChanged;
 
@@ -920,23 +1096,31 @@
     {
         try
         {
-            var saved = Config.Saved;
-            var toSave = working.Clone();
-            toSave.Language = saved.Language;
-            toSave.View = saved.View;
-            toSave.GroupByYear = saved.GroupByYear;
-            toSave.Presets = saved.Clone().Presets;
-            Config.Save(toSave);
-            working = Config.Saved.Clone();
+            savingDraft = true;
+            if (!Config.TrySaveDraft(working, draftBaseline))
+            {
+                draftConflict = true;
+                return;
+            }
+            Discard();
             Snackbar.Add(PendingRestart.Count > 0 ? T("Salvo. Reinicie o servidor para aplicar tudo.", "Saved. Restart the server to apply everything.") : T("Salvo.", "Saved."), Severity.Success);
         }
         catch (Exception ex)
         {
             Snackbar.Add(T("Não foi possível salvar: ", "Could not save: ") + ex.Message, Severity.Error);
         }
+        finally { savingDraft = false; }
     }
 
-    private void Discard() => working = Config.Saved.Clone();
+    private void Discard()
+    {
+        working = Config.Saved.Clone();
+        draftBaseline = working.Clone();
+        draftConflict = false;
+        previewCache = null;
+        addRole = addZones = addEscort = "";
+        addChance = 100;
+    }
 
     private void SetLanguage(string language)
     {
@@ -1093,14 +1277,15 @@
         <a class="ppes-wiki" href="@url" target="_blank" rel="noopener noreferrer" title="@T("Abrir na wiki", "Open on the wiki")">Wiki <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Class="ppes-wiki-icon" /></a>
     };
 
-    // hover (or tap/focus) opens the list; it stays open while the pointer moves into it so links are clickable
     private RenderFragment QuestInfo(IReadOnlyList<QuestLink> quests) => __builder =>
     {
         if (quests.Count == 0) return;
-        <span class="ppes-quests" tabindex="0" aria-label="@T("Quests deste evento", "Quests of this event")">
+        <details class="ppes-quests">
+            <summary aria-label="@T("Quests deste evento", "Quests of this event")">
             <MudIcon Icon="@Icons.Material.Outlined.Info" Class="ppes-quests-icon" />
             @(quests.Count == 1 ? "1 quest" : $"{quests.Count} quests")
-            <span class="ppes-quests-pop" role="tooltip">
+            </summary>
+            <span class="ppes-quests-pop">
                 <span class="ppes-quests-box">
                     <span class="ppes-quests-title">@T("Quests do evento (abre a wiki)", "Event quests (opens the wiki)")</span>
                     @foreach (var q in quests)
@@ -1126,7 +1311,7 @@
                     }
                 </span>
             </span>
-        </span>
+        </details>
     };
 
     private string KindLabel(EventKind kind) => kind switch
@@ -1229,6 +1414,16 @@
 
     private void SetEscort(string role, string? text)
     {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            var edit = working.SpawnsOf(previewMap).FirstOrDefault(e => string.Equals(e.Role, role, StringComparison.OrdinalIgnoreCase));
+            if (edit is not null)
+            {
+                edit.Escort = null;
+                if (!edit.Remove && edit.Chance is null && edit.Zones is null) ResetRole(role);
+            }
+            return;
+        }
         if (SpawnEdits.NormalizeEscort(text) is { } escort) EditOf(role).Escort = escort;
         else Snackbar.Add(T("Escolta: use um número (2) ou um intervalo (1-3).", "Escort: use a number (2) or a range (1-3)."), Severity.Warning);
     }
@@ -1249,12 +1444,18 @@
     private void AddSpawn()
     {
         if (string.IsNullOrEmpty(addRole)) return;
+        var escort = SpawnEdits.NormalizeEscort(addEscort);
+        if ((!string.IsNullOrWhiteSpace(addEscort) && escort is null) || !double.IsFinite(addChance))
+        {
+            Snackbar.Add(T("Confira a chance e a escolta antes de adicionar. Escolta: use 2 ou 1-3.", "Check the chance and escort before adding. Escort: use 2 or 1-3."), Severity.Warning);
+            return;
+        }
         ResetRole(addRole);
         var edit = EditOf(addRole);
         edit.Chance = Math.Clamp(addChance, 1, 100);
         var zones = string.Join(",", addZones.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
         edit.Zones = zones.Length > 0 ? zones : null;
-        edit.Escort = SpawnEdits.NormalizeEscort(addEscort);
+        edit.Escort = escort;
         addRole = addZones = addEscort = "";
         addChance = 100;
     }

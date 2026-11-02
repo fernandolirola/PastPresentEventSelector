@@ -53,9 +53,15 @@ public sealed class ConfigService
     /// <summary>Saves a page preference (language, view, presets) right away, leaving unsaved event picks alone.</summary>
     public void Update(Action<PpesConfig> change)
     {
-        var updated = Saved.Clone();
-        change(updated);
-        Save(updated);
+        lock (_lock)
+        {
+            var updated = Saved.Clone();
+            change(updated);
+            updated = Normalize(updated);
+            WriteAtomic(updated);
+            Volatile.Write(ref _saved, updated);
+        }
+        Changed?.Invoke();
     }
 
     public void Save(PpesConfig config)
@@ -67,6 +73,26 @@ public sealed class ConfigService
             Volatile.Write(ref _saved, normalized);
         }
         Changed?.Invoke();
+    }
+
+    /// <summary>Reject a stale page draft and preserve preferences saved independently of it.</summary>
+    public bool TrySaveDraft(PpesConfig draft, PpesConfig baseline)
+    {
+        lock (_lock)
+        {
+            var latest = Saved;
+            if (!latest.SameSelectionAs(baseline)) return false;
+            var updated = draft.Clone();
+            updated.Language = latest.Language;
+            updated.View = latest.View;
+            updated.GroupByYear = latest.GroupByYear;
+            updated.Presets = latest.Clone().Presets;
+            updated = Normalize(updated);
+            WriteAtomic(updated);
+            Volatile.Write(ref _saved, updated);
+        }
+        Changed?.Invoke();
+        return true;
     }
 
     private void Load()

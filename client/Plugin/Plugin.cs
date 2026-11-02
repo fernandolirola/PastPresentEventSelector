@@ -15,7 +15,7 @@ namespace PPES.Client;
 /// Client fixes for the event content. Each patch is a no-op unless the problem it fixes is present.
 /// </summary>
 // same GUID as the server mod: the Forge checks that both DLLs declare the registered one
-[BepInPlugin("com.zezinho.pastpresenteventselector", "zezinho-PastPresentEventSelector", "1.7.1")]
+[BepInPlugin("com.zezinho.pastpresenteventselector", "zezinho-PastPresentEventSelector", "1.7.2")]
 [BepInDependency("com.morebotsapi.tacticaltoaster", BepInDependency.DependencyFlags.SoftDependency)]
 [BepInDependency("com.acidphantasm.botplacementsystem", BepInDependency.DependencyFlags.SoftDependency)]
 public class Plugin : BaseUnityPlugin
@@ -23,6 +23,22 @@ public class Plugin : BaseUnityPlugin
     private void Awake()
     {
         var harmony = new Harmony("zezinho.ppes.client");
+        try
+        {
+            RitualGroupSpawn.Enable(harmony, Logger);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning($"Ritual group fix not applied: {ex.Message}");
+        }
+        try
+        {
+            ZombieHiding.Enable(harmony);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning($"Zombie hiding setting not applied: {ex.Message}");
+        }
         try
         {
             MoreBotsWaveHeadroom.Enable(harmony, Logger);
@@ -202,7 +218,6 @@ internal static class BossMisfire
     private const float KollontayStock = 5f;
     private static float _kollontay = KollontayStock;
     private static float _vengeful = -1f;
-    private static float _readAt = -100f;
 
     public static void Enable(Harmony harmony)
     {
@@ -214,18 +229,9 @@ internal static class BossMisfire
 
     private static void Refresh()
     {
-        if (UnityEngine.Time.realtimeSinceStartup - _readAt < 30f) return;
-        _readAt = UnityEngine.Time.realtimeSinceStartup;
-        try
-        {
-            var json = RequestHandler.GetJson("/ppes/mechanics") ?? "";
-            _kollontay = Read(json, "kollontayJam", _kollontay);
-            _vengeful = Read(json, "vengefulJam", _vengeful);
-        }
-        catch
-        {
-            // server without the setting: keep the last value, stock at first
-        }
+        var json = ClientMechanics.Read();
+        _kollontay = Read(json, "kollontayJam", _kollontay);
+        _vengeful = Read(json, "vengefulJam", _vengeful);
     }
 
     private static float Read(string json, string key, float fallback)
