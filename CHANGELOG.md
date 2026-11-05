@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.7.5
+
+- Fixed the zombie toxin settings. Dehydration now drains hydration instead of adding it, and both settings start at the game's own values (0.84 and 20%).
+- Fixed the raid editor removing a boss or faction from the map when you moved it to new zones.
+- Fixed the Lab preview with the Blackout event making your next real Lab raid go dark when you hadn't saved the pick.
+- Fixed the server failing to start with an ABPS version it doesn't recognize.
+- Fixed Fence's event message not being sent again when it failed to arrive the first time.
+- Fixed presets whose names differ only by extra spaces resetting your settings.
+- Fixed the raid preview showing small zombie infection chances wrong (1% appeared as 100%).
+- Fixed small stutters in raid caused by the mod checking its settings.
+
 ## 1.7.4
 
 - **Faction groups spawn on time:** Cleanup Crew, Smugglers, Pillagers, Gus and Basmach no longer wait to spawn while Scavs or other bots are near their spawn area. On busy maps such as Interchange they could appear 20 seconds to 2 minutes into the raid; they now arrive at raid start again, as before 1.7.0. They still fight everyone. Requires the updated client plugin.
