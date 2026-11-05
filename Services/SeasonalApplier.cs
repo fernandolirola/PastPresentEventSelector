@@ -91,12 +91,6 @@ public sealed class SeasonalApplier(
     private const string Pumpkin = "634959225289190e5e773b3b";
     private const string SignalPistol = "620109578d82e67e7911abf2";
     private const string AcidFlare = "635267f063651329f75a4ee8";
-    private static readonly string[] HalloweenLootMaps = ["bigmap", "woods", "shoreline", "interchange", "lighthouse", "rezervbase", "tarkovstreets",
-        "factory4_day", "factory4_night", "laboratory", "sandbox", "sandbox_high"];
-    // drawers, jackets and PC blocks
-    private static readonly HashSet<string> SmallContainers = ["5675838d4bdc2d95058b456e", "578f87b7245977356274f2cd", "578f8778245977358849a9b5",
-        "5914944186f774189e5e76c2", "5937ef2b86f77408a47244b3", "59139c2186f77411564f8e42"];
-
     public Task OnLoadAsync(CancellationToken cancellationToken)
     {
         var settings = config.Saved;
@@ -235,36 +229,17 @@ public sealed class SeasonalApplier(
     private void AddHalloweenLoot()
     {
         // pumpkins with sweets in small containers on every map
-        foreach (var map in HalloweenLootMaps)
-        {
-            locations.GetLocation(map)?.StaticLoot?.AddTransformer(data =>
-            {
-                if (data is null) return data;
-                foreach (var (container, details) in data)
-                {
-                    if (!SmallContainers.Contains(container.ToString()) || details.ItemDistribution is not { } dist || dist.Any(d => d.Tpl == Pumpkin)) continue;
-                    var sum = dist.Sum(d => d.RelativeProbability ?? 0);
-                    details.ItemDistribution = dist.Append(new ItemDistribution { Tpl = Pumpkin, RelativeProbability = (float)Math.Max(1, Math.Round(sum * 0.03 / 0.97)) }).ToList();
-                }
-                return data;
-            });
-        }
+        LootShares.AddToSmallContainers(locations, Pumpkin, 0.03);
         // signal pistols and acid green flares on Scavs
         if (botTable.Types.TryGetValue("assault", out var scav) && scav?.BotInventory.Items is { } loot)
         {
             foreach (var pool in new[] { loot.Pockets, loot.TacticalVest, loot.Backpack })
             {
                 if (pool is null) continue;
-                AddShare(pool, SignalPistol, 0.02);
-                AddShare(pool, AcidFlare, 0.04);
+                LootShares.AddShare(pool, SignalPistol, 0.02);
+                LootShares.AddShare(pool, AcidFlare, 0.04);
             }
         }
-    }
-
-    private static void AddShare(Dictionary<MongoId, double> pool, string tpl, double share)
-    {
-        var others = pool.Where(p => p.Key != tpl).Sum(p => p.Value);
-        pool[tpl] = Math.Max(1, Math.Round(others * share / (1 - share)));
     }
 
     private static void ApplyChristmasParts(List<SeasonalEvent> events, ChristmasParts parts)

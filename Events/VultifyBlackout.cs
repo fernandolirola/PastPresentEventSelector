@@ -58,7 +58,7 @@ public static class VultifyBlackout
     /// <summary>Makes this Labs raid a blackout raid.</summary>
     public static void Force(RaidContext ctx)
     {
-        if (_controller is null || _state is null) return;
+        if (_controller is null || _state is null || ctx.IsPreview) return;
         if (_state.GetValue(_controller) is true) return;
 
         _state.SetValue(_controller, true);

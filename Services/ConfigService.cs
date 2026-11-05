@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using PPES.Events;
 using PPES.Models;
 using SPTarkov.Common.Models.Logging;
@@ -101,11 +102,11 @@ public sealed class ConfigService
         {
             try
             {
-                var loaded = File.Exists(ConfigPath)
-                    ? JsonSerializer.Deserialize<PpesConfig>(File.ReadAllText(ConfigPath), JsonOptions) ?? new PpesConfig()
-                    : new PpesConfig();
+                var text = File.Exists(ConfigPath) ? File.ReadAllText(ConfigPath) : null;
+                var loaded = text is null ? new PpesConfig() : JsonSerializer.Deserialize<PpesConfig>(text, JsonOptions) ?? new PpesConfig();
+                var migrated = text is not null && MigrateToxin(text, loaded);
                 loaded = Normalize(loaded);
-                if (!File.Exists(ConfigPath)) WriteAtomic(loaded);
+                if (text is null || migrated) WriteAtomic(loaded);
                 Volatile.Write(ref _saved, loaded);
             }
             catch (Exception ex)
@@ -117,6 +118,20 @@ public sealed class ConfigService
                 Volatile.Write(ref _saved, Normalize(new PpesConfig()));
             }
         }
+    }
+
+    /// <summary>
+    /// Up to 1.7.4 the toxin sliders had wrong defaults (10 and 33) and a wrong sign, so an old hydration value is
+    /// dropped and the old hearing default becomes the game's 20.
+    /// </summary>
+    private static bool MigrateToxin(string text, PpesConfig loaded)
+    {
+        var mechanics = JsonNode.Parse(text, documentOptions: new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true })?["mechanics"] as JsonObject;
+        if (mechanics is null) return false;
+        bool Has(string key) => mechanics.Any(p => string.Equals(p.Key, key, StringComparison.OrdinalIgnoreCase));
+        if (!Has("toxinHydration") || Has("toxinDehydration")) return false;
+        if (loaded.Mechanics?.ToxinHearing == 33) loaded.Mechanics.ToxinHearing = 20;
+        return true;
     }
 
     private static PpesConfig Normalize(PpesConfig config)
@@ -136,7 +151,7 @@ public sealed class ConfigService
         m.VengefulJam = m.VengefulJam < 0 ? -1 : Math.Clamp(Math.Round(m.VengefulJam, 1), 0, 3600);
         m.RitualExitTime = Math.Clamp(Math.Round(m.RitualExitTime, 2), 0.1, 20);
         m.RitualStamina = Math.Clamp(Math.Round(m.RitualStamina, 2), 0.1, 20);
-        m.ToxinHydration = Math.Clamp(Math.Round(m.ToxinHydration, 1), 0, 100);
+        m.ToxinDehydration = Math.Clamp(Math.Round(m.ToxinDehydration, 2), 0, 100);
         m.ToxinHearing = Math.Clamp(Math.Round(m.ToxinHearing, 0), 0, 100);
         config.Christmas ??= new ChristmasParts();
         config.AprilFools ??= new AprilFoolsParts();
@@ -148,9 +163,11 @@ public sealed class ConfigService
         config.SeasonalRotation.Mode = SeasonalRotationMode.Normalize(config.SeasonalRotation.Mode);
         config.SeasonalRotation.BreakChance = Math.Clamp(config.SeasonalRotation.BreakChance, 0, 90);
         config.Spawns = NormalizeSpawns(config.Spawns ?? new());
-        config.Presets = (config.Presets ?? new())
-            .Where(p => !string.IsNullOrWhiteSpace(p.Key) && p.Value is not null)
-            .ToDictionary(p => p.Key.Trim(), p => new PresetData { Seasonal = NormalizeSeasonal(p.Value.Seasonal ?? new()), Events = NormalizeEvents(p.Value.Events ?? []) });
+        var presets = new Dictionary<string, PresetData>();
+        foreach (var (name, preset) in config.Presets ?? new())
+            if (!string.IsNullOrWhiteSpace(name) && preset is not null)
+                presets[name.Trim()] = new PresetData { Seasonal = NormalizeSeasonal(preset.Seasonal ?? new()), Events = NormalizeEvents(preset.Events ?? []) };
+        config.Presets = presets;
         return config;
     }
 

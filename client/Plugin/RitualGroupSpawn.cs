@@ -21,7 +21,7 @@ internal static class RitualGroupSpawn
             prefix: new HarmonyMethod(typeof(RitualGroupSpawn), nameof(BeforeGroup)));
         harmony.Patch(AccessTools.Method(typeof(BotBossSpawn), nameof(BotBossSpawn.SpawnBossSupports)),
             prefix: new HarmonyMethod(typeof(RitualGroupSpawn), nameof(BeforeSupports)));
-        logger.LogInfo("[RitualGroupFix] enabled; coordinated ritual spawn 1.7.2");
+        logger.LogInfo("[RitualGroupFix] enabled");
     }
 
     private static bool BeforeGroup(BotBossSpawn __instance, BotCreationData creationData, BossLocationSpawn wave,

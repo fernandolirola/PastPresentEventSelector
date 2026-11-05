@@ -478,7 +478,7 @@
                     <div class="ppes-preview-badges">
                         @if (preview.AirdropChance > 0)
                         {
-                            <span class="ppes-badge"><MudIcon Icon="@Icons.Material.Filled.FlightLand" /> Airdrop @Percent(preview.AirdropChance)@(preview.AirdropMax > 1 ? T($", até {preview.AirdropMax}", $", up to {preview.AirdropMax}") : "")</span>
+                            <span class="ppes-badge"><MudIcon Icon="@Icons.Material.Filled.FlightLand" /> Airdrop @Percent(preview.AirdropChance * 100)@(preview.AirdropMax > 1 ? T($", até {preview.AirdropMax}", $", up to {preview.AirdropMax}") : "")</span>
                         }
                         @if (preview.Mortar)
                         {
@@ -775,10 +775,10 @@
             "Padrão 3: as saídas demoram 3 vezes mais durante o ritual.", "Default 3: extracts take 3 times longer during the ritual."),
         new("stamina", "Gasto de vigor no ritual", "Ritual stamina drain", "Halloween com ritual", "Halloween with ritual", "x", 0.1, 20, 0.1,
             "Padrão 3: o vigor gasta 3 vezes mais rápido durante o ritual.", "Default 3: stamina drains 3 times faster during the ritual."),
-        new("hydration", "Toxina: desidratação", "Toxin: dehydration", "zumbis", "zombies", "/s", 0, 100, 0.5,
-            "Padrão 10: hidratação perdida por segundo depois de ser infectado.", "Default 10: hydration lost per second after being infected."),
+        new("hydration", "Toxina: desidratação", "Toxin: dehydration", "zumbis", "zombies", "", 0, 100, 0.01,
+            "Padrão 0.84: a velocidade com que a hidratação cai depois de ser infectado. 0 desliga.", "Default 0.84: how fast hydration drains after being infected. 0 turns it off."),
         new("hearing", "Toxina: perda de audição", "Toxin: hearing loss", "zumbis", "zombies", "%", 0, 100, 1,
-            "Padrão 33: quanto da audição se perde ao ser infectado.", "Default 33: how much hearing is lost when infected."),
+            "Padrão 20: quanto da audição se perde ao ser infectado.", "Default 20: how much hearing is lost when infected."),
     ];
 
     private string MechValue(string key) => (key switch
@@ -787,7 +787,7 @@
         "vengeful" => working.Mechanics.VengefulJam,
         "exit" => working.Mechanics.RitualExitTime,
         "stamina" => working.Mechanics.RitualStamina,
-        "hydration" => working.Mechanics.ToxinHydration,
+        "hydration" => working.Mechanics.ToxinDehydration,
         _ => working.Mechanics.ToxinHearing,
     }).ToString(System.Globalization.CultureInfo.InvariantCulture);
 
@@ -800,7 +800,7 @@
             case "vengeful": working.Mechanics.VengefulJam = v < 0 ? -1 : Math.Clamp(v, 0, 3600); break;
             case "exit": working.Mechanics.RitualExitTime = Math.Clamp(v, 0.1, 20); break;
             case "stamina": working.Mechanics.RitualStamina = Math.Clamp(v, 0.1, 20); break;
-            case "hydration": working.Mechanics.ToxinHydration = Math.Clamp(v, 0, 100); break;
+            case "hydration": working.Mechanics.ToxinDehydration = Math.Clamp(v, 0, 100); break;
             default: working.Mechanics.ToxinHearing = Math.Clamp(v, 0, 100); break;
         }
     }
@@ -983,7 +983,7 @@
                 names.Add(T("Partes do 1º de abril", "April Fools parts"));
             if (saved.Mechanics.RitualExitTime != applied.Mechanics.RitualExitTime
                 || saved.Mechanics.RitualStamina != applied.Mechanics.RitualStamina
-                || saved.Mechanics.ToxinHydration != applied.Mechanics.ToxinHydration
+                || saved.Mechanics.ToxinDehydration != applied.Mechanics.ToxinDehydration
                 || saved.Mechanics.ToxinHearing != applied.Mechanics.ToxinHearing)
                 names.Add(T("Efeitos do ritual e da infec\u00e7\u00e3o", "Ritual and infection effects"));
             if (!saved.SeasonalRotation.SameAs(applied.SeasonalRotation))
@@ -1465,7 +1465,7 @@
     private string EscortText(PreviewSpawn s) =>
         s.EscortMax == 0 ? T("sozinho", "alone") : s.EscortMin == s.EscortMax ? $"{s.EscortMax}" : $"{s.EscortMin} {T("a", "to")} {s.EscortMax}";
 
-    private static string Percent(double chance) => chance <= 1 ? $"{chance * 100:0}%" : $"{chance:0}%";
+    private static string Percent(double percent) => $"{percent:0.#}%";
 
     private string FormatDate(DateTime date) => IsPt ? $"{date.Day} {MonthsPt[date.Month - 1]}" : $"{MonthsEn[date.Month - 1]} {date.Day}";
 

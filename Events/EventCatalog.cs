@@ -478,8 +478,7 @@ public static class EventCatalog
             {
                 if (!ctx.Is("tarkovstreets")) return;
                 foreach (var dealer in new[] { FactionCatalog.Gus, FactionCatalog.Basmach })
-                    if (Effects.AddGroup(ctx, dealer, "2", FactionZones["tarkovstreets"], 100))
-                        ctx.Location.BossLocationSpawn!.Last().BossEscortType = "followerKolontaySecurity";
+                    Effects.AddGroup(ctx, dealer, "2", FactionZones["tarkovstreets"], 100, escortType: "followerKolontaySecurity");
             }),
 
         new("keyToSalvation", "A Key to Salvation", "Jun 2024", EventTag.Ready,
@@ -698,32 +697,9 @@ public static class EventCatalog
 
     internal static class Effects
     {
-        private static readonly string[] AllMaps = ["bigmap", "woods", "shoreline", "interchange", "lighthouse", "rezervbase", "tarkovstreets",
-            "factory4_day", "factory4_night", "laboratory", "sandbox", "sandbox_high"];
-
-        // drawers, jackets and PC blocks
-        private static readonly HashSet<string> SmallContainers = ["5675838d4bdc2d95058b456e", "578f87b7245977356274f2cd", "578f8778245977358849a9b5",
-            "5914944186f774189e5e76c2", "5937ef2b86f77408a47244b3", "59139c2186f77411564f8e42"];
-
         /// <summary>Adds an item to small loot containers on every map, at about <paramref name="percent"/>% of each container's picks.</summary>
-        public static void AddStaticLoot(LoadContext ctx, string tpl, double percent)
-        {
-            foreach (var map in AllMaps)
-            {
-                ctx.Locations.GetLocation(map)?.StaticLoot?.AddTransformer(data =>
-                {
-                    if (data is null) return data;
-                    foreach (var (container, details) in data)
-                    {
-                        if (!SmallContainers.Contains(container.ToString()) || details.ItemDistribution is not { } dist) continue;
-                        if (dist.Any(d => d.Tpl == tpl)) continue;
-                        var sum = dist.Sum(d => d.RelativeProbability ?? 0);
-                        details.ItemDistribution = dist.Append(new ItemDistribution { Tpl = tpl, RelativeProbability = (float)Math.Max(1, Math.Round(sum * percent / (100 - percent))) }).ToList();
-                    }
-                    return data;
-                });
-            }
-        }
+        public static void AddStaticLoot(LoadContext ctx, string tpl, double percent) =>
+            LootShares.AddToSmallContainers(ctx.Locations, tpl, percent / 100);
 
         /// <summary>Multiplies SPT's loot multipliers for a map, on top of what the user or other mods set.</summary>
         public static void ScaleLoot(LoadContext ctx, string map, double loose, double containers)
@@ -749,7 +725,8 @@ public static class EventCatalog
         }
 
         /// <summary>Adds groups of a role until the map has <paramref name="groups"/> of them in these zones. False when the role cannot spawn.</summary>
-        public static bool AddGroup(RaidContext ctx, string role, string escortAmount, string zones, double chance, int groups = 1)
+        public static bool AddGroup(RaidContext ctx, string role, string escortAmount, string zones, double chance, int groups = 1,
+            string? escortType = null, bool forceSpawn = false)
         {
             if (FactionCatalog.ByRole(role) is not null && !FactionCatalog.IsReady(role)) return false;
             var existing = ctx.Location.BossLocationSpawn?.Count(b => b.BossName == role && b.BossZone == zones) ?? 0;
@@ -758,7 +735,7 @@ public static class EventCatalog
             {
                 if (ctx.CloneAnySpawn() is not { } spawn) return false;
                 spawn.BossName = role;
-                spawn.BossEscortType = role;
+                spawn.BossEscortType = escortType ?? role;
                 spawn.BossEscortAmount = escortAmount;
                 spawn.BossDifficulty = "normal";
                 spawn.BossEscortDifficulty = "normal";
@@ -769,6 +746,7 @@ public static class EventCatalog
                 spawn.TriggerName = "";
                 spawn.Time = -1;
                 spawn.IgnoreMaxBots = true;
+                if (forceSpawn) spawn.ForceSpawn = true;
                 ctx.AddSpawn(spawn);
             }
             return true;
@@ -786,12 +764,7 @@ public static class EventCatalog
                 foreach (var spawn in spawns) spawn.BossChance = 100;
                 return;
             }
-            if (AddGroup(ctx, boss, escortAmount, zones, 100))
-            {
-                var added = ctx.Location.BossLocationSpawn!.Last();
-                added.BossEscortType = escort;
-                added.ForceSpawn = true;
-            }
+            AddGroup(ctx, boss, escortAmount, zones, 100, escortType: escort, forceSpawn: true);
         }
 
         public static void RemoveAccessKeys(LoadContext ctx, params string[] maps)

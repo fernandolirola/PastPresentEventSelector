@@ -1,5 +1,6 @@
 using System.Reflection;
 using HarmonyLib;
+using PPES.Services;
 using SPTarkov.Common.Models.Logging;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
@@ -46,12 +47,15 @@ public sealed class AbpsCustomSpawnPreserver(
         var abpsPriority = abps.GetCustomAttribute<Injectable>()?.TypePriority;
         ReadMoreBotsRoles(services);
 
-        var configure = AccessTools.Method(abps, "ConfigureInitialData")
-            ?? throw new MissingMethodException(abps.FullName, "ConfigureInitialData");
-        var rebuild = AccessTools.Method(abps, "RebuildMap")
-            ?? throw new MissingMethodException(abps.FullName, "RebuildMap");
-        _botMapCache = AccessTools.Field(abps, "_botMapCache")
-            ?? throw new MissingFieldException(abps.FullName, "_botMapCache");
+        var configure = AccessTools.Method(abps, "ConfigureInitialData");
+        var rebuild = AccessTools.Method(abps, "RebuildMap");
+        _botMapCache = AccessTools.Field(abps, "_botMapCache");
+        // a changed ABPS must not stop the server from loading; only the faction spawns are lost
+        if (configure is null || rebuild is null || _botMapCache is null)
+        {
+            logger.Warning($"{ConfigService.LogPrefix} This ABPS version is not supported, custom-faction spawns may be dropped by its rebuild");
+            return Task.CompletedTask;
+        }
         _bots = bots;
         _locations = locations;
         _cloner = cloner;
@@ -64,7 +68,7 @@ public sealed class AbpsCustomSpawnPreserver(
         harmony.Patch(rebuild,
             prefix: new HarmonyMethod(typeof(AbpsCustomSpawnPreserver), nameof(BeforeRebuild)),
             postfix: new HarmonyMethod(typeof(AbpsCustomSpawnPreserver), nameof(AfterRebuild)));
-        logger.Info($"[Event Selector] ABPS custom-faction spawn preservation enabled (ABPS priority {abpsPriority?.ToString() ?? "unknown"}, MoreBots roles {MoreBotsRoles.Count})");
+        logger.Info($"{ConfigService.LogPrefix} ABPS custom-faction spawn preservation enabled (ABPS priority {abpsPriority?.ToString() ?? "unknown"}, MoreBots roles {MoreBotsRoles.Count})");
         return Task.CompletedTask;
     }
 
@@ -73,7 +77,7 @@ public sealed class AbpsCustomSpawnPreserver(
         __state = CaptureAll();
         var captured = __state.Sum(pair => pair.Value.Count);
         if (captured > 0)
-            _logger?.Info($"[Event Selector] Preserving {captured} custom-faction spawn entries before ABPS rebuild");
+            _logger?.Info($"{ConfigService.LogPrefix} Preserving {captured} custom-faction spawn entries before ABPS rebuild");
     }
 
     private static void AfterConfigure(object __instance, Dictionary<string, List<BossLocationSpawn>> __state)
@@ -82,7 +86,7 @@ public sealed class AbpsCustomSpawnPreserver(
         foreach (var (map, spawns) in __state)
             restored += Restore(__instance, map, spawns);
         if (restored > 0)
-            _logger?.Info($"[Event Selector] Restored {restored} custom-faction spawn entries after ABPS startup rebuild");
+            _logger?.Info($"{ConfigService.LogPrefix} Restored {restored} custom-faction spawn entries after ABPS startup rebuild");
     }
 
     private static void BeforeRebuild(string location, ref List<BossLocationSpawn> __state)
@@ -94,7 +98,7 @@ public sealed class AbpsCustomSpawnPreserver(
     {
         var restored = Restore(__instance, location, __state);
         if (restored > 0)
-            _logger?.Info($"[Event Selector] Restored {restored} custom-faction spawn entries on {location} after ABPS raid rebuild");
+            _logger?.Info($"{ConfigService.LogPrefix} Restored {restored} custom-faction spawn entries on {location} after ABPS raid rebuild");
     }
 
     private static Dictionary<string, List<BossLocationSpawn>> CaptureAll()
@@ -112,8 +116,8 @@ public sealed class AbpsCustomSpawnPreserver(
     {
         if (_bots is null || _locations is null || _cloner is null) return [];
         var key = _locations.GetMappedKey(map);
-        if (!_locations.GetDictionary().TryGetValue(key, out var location)) return [];
-        var custom = location.Base.BossLocationSpawn
+        if (!_locations.GetDictionary().TryGetValue(key, out var location) || location.Base?.BossLocationSpawn is not { } spawns) return [];
+        var custom = spawns
             .Where(spawn => IsRegisteredCustomRole(spawn.BossName))
             .ToList();
         return custom.Count == 0 ? [] : _cloner.Clone<List<BossLocationSpawn>>(custom) ?? [];
@@ -144,10 +148,9 @@ public sealed class AbpsCustomSpawnPreserver(
         var cache = _botMapCache.GetValue(abps) as Dictionary<string, List<BossLocationSpawn>>;
         if (cache is null || !cache.TryGetValue(map, out var cached)) return 0;
         var key = _locations.GetMappedKey(map);
-        if (!_locations.GetDictionary().TryGetValue(key, out var location)) return 0;
-
         var added = Merge(cached, saved);
-        Merge(location.Base.BossLocationSpawn, saved);
+        if (_locations.GetDictionary().TryGetValue(key, out var location) && location.Base?.BossLocationSpawn is { } spawns)
+            Merge(spawns, saved);
         return added;
     }
 

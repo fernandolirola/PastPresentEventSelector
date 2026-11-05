@@ -112,7 +112,7 @@ public sealed class PreviewService(LocationTable locations, ICloner cloner, Seas
         var before = Summarize(source.BossLocationSpawn ?? []);
 
         var copy = cloner.Clone(source)!;
-        var ctx = new RaidContext(copy, mapId, locations, cloner);
+        var ctx = new RaidContext(copy, mapId, locations, cloner, preview: true);
         // seasonal bosses as the server runs them now; seasonal changes only apply after a restart
         SeasonalRaidContent.Apply(ctx, seasonalBosses, seasonalConfig, cloner);
         var halloween = selection?.Halloween ?? config.Saved.Halloween;

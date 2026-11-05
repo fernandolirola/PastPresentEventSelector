@@ -79,10 +79,10 @@ public sealed class EventQuests(
                 templates.Quests[id] = quest;
                 // same entry as SPT's own Halloween quests; with the 2026 part off the end date below hides them instead
                 if (seasonOf.TryGetValue(id.ToString(), out var season) && outbreak)
-                    questConfig.EventQuests[id] = new EventQuestData { Name = quest.QuestName, Season = season, StartTimestamp = 1341615600000, EndTimestamp = 0, Yearly = true };
+                    questConfig.EventQuests[id] = new EventQuestData { Name = quest.QuestName ?? "", Season = season, StartTimestamp = 1341615600000, EndTimestamp = 0, Yearly = true };
                 else
                     // an end date in the past hides the quest until its event is picked
-                    questConfig.EventQuests[id] = new EventQuestData { Name = quest.QuestName, Season = SeasonalEventType.None, StartTimestamp = 0, EndTimestamp = 1, Yearly = false };
+                    questConfig.EventQuests[id] = new EventQuestData { Name = quest.QuestName ?? "", Season = SeasonalEventType.None, StartTimestamp = 0, EndTimestamp = 1, Yearly = false };
             }
             foreach (var (eventId, ids) in meta.Events)
                 EventCatalog.ExtraQuests[eventId] = ids.Where(i => templates.Quests.ContainsKey(i)).ToList();
@@ -192,20 +192,14 @@ public sealed class EventQuests(
             if (smuggler.BotChances?.EquipmentChances is { } chances) chances["Backpack"] = 100;
             // share of backpack picks, so a smuggler carries event cargo often but not always
             foreach (var (tpl, share) in new[] { (LockedCase, 0.3), (Contraband, 0.3), (CaseKey, 0.2) })
-                AddShare(backpack, tpl, share);
+                LootShares.AddShare(backpack, tpl, share);
         }
         if (botTable.Types.TryGetValue(FactionCatalog.Pillager.ToLowerInvariant(), out var pillager) && pillager is not null
             && pillager.BotInventory.Equipment?.TryGetValue(EquipmentSlots.FaceCover, out var faces) == true && faces is not null)
         {
             if (pillager.BotChances?.EquipmentChances is { } chances) chances["FaceCover"] = Math.Max(chances.GetValueOrDefault("FaceCover"), 70);
             foreach (var mask in PaintedMasks)
-                AddShare(faces, mask, 0.4 / PaintedMasks.Length);
+                LootShares.AddShare(faces, mask, 0.4 / PaintedMasks.Length);
         }
-    }
-
-    private static void AddShare(Dictionary<MongoId, double> pool, string tpl, double share)
-    {
-        var others = pool.Where(p => p.Key != tpl).Sum(p => p.Value);
-        pool[tpl] = Math.Max(1, Math.Round(others * share / (1 - share)));
     }
 }

@@ -68,9 +68,9 @@ internal static class UiAudit
         Invoke("Discard");
         config.Update(c => { c.Mechanics.KollontayJam = 5; c.Mechanics.VengefulJam = -1; });
         Check(Pending().Count == 0, "Client jam settings alone do not require restart");
-        config.Update(c => c.Mechanics.ToxinHydration = 12);
+        config.Update(c => c.Mechanics.ToxinDehydration = 1.5);
         Check(Pending().Any(s => s.Contains("Ritual") || s.Contains("ritual")), "Server Mechanics changes appear in restart warning");
-        config.Update(c => { c.Mechanics.ToxinHydration = 10; c.SeasonalRotation.Mode = "weekly"; });
+        config.Update(c => { c.Mechanics.ToxinDehydration = 0.84; c.SeasonalRotation.Mode = "weekly"; });
         Check(Pending().Count > 0, "Seasonal rotation change requires restart even during a break");
         Invoke("Discard");
         Field(home, "addRole", "bossTagilla");
@@ -124,6 +124,18 @@ internal static class UiAudit
         Check(((RaidPreview)previewProperty.GetValue(home)!).NeedsKeycard == true, "UI preview cache starts with current access requirement");
         selection.Halloween.FreeLab = true;
         Check(((RaidPreview)previewProperty.GetValue(home)!).NeedsKeycard == false, "Changing free-Lab preference invalidates UI preview cache");
+        var moved = previewer.Preview("laboratory", [], [new SpawnEdit { Role = "bossTagilla", Zones = "ZoneNew" }], selection);
+        Check(moved.Spawns.SingleOrDefault()?.RawZones == "ZoneNew", "Moving a boss to only new zones keeps the boss");
+        var mixed = previewer.Preview("laboratory", [], [new SpawnEdit { Role = "bossTagilla", Zones = "ZoneTest,ZoneNew" }], selection);
+        Check(mixed.Spawns.Single().RawZones == "ZoneTest,ZoneNew", "Adding a zone keeps the existing one");
+
+        var migrate = typeof(ConfigService).GetMethod("MigrateToxin", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var old = new PpesConfig { Mechanics = { ToxinHearing = 33 } };
+        Check((bool)migrate.Invoke(null, ["{ \"mechanics\": { \"toxinHydration\": 10, \"toxinHearing\": 33 } }", old])! && old.Mechanics.ToxinHearing == 20,
+            "Old toxin defaults migrate to the game's values");
+        var current = new PpesConfig { Mechanics = { ToxinHearing = 33 } };
+        Check(!(bool)migrate.Invoke(null, ["{ \"mechanics\": { \"toxinDehydration\": 0.84, \"toxinHearing\": 33 } }", current])! && current.Mechanics.ToxinHearing == 33,
+            "A hearing value chosen with the new settings is kept");
         Console.WriteLine($"{checks} UI audit checks passed.");
     }
 }

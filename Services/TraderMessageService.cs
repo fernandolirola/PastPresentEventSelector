@@ -41,11 +41,16 @@ public sealed class TraderMessageService(ConfigService config, SeasonalCalendar 
             {
                 _sent ??= LoadState();
                 if (_sent.GetValueOrDefault(sessionId.ToString()) == fingerprint) return;
-                _sent[sessionId.ToString()] = fingerprint;
-                File.WriteAllText(StatePath, JsonSerializer.Serialize(_sent));
             }
 
+            // recorded only once sent, so a failed send is tried again at the next login
             mail.SendDirectNpcMessageToPlayer(sessionId, FenceId, MessageType.NpcTraderMessage, Compose(seasonal, past, settings.Language == "pt"), null, 7 * 24 * 3600L);
+
+            lock (_lock)
+            {
+                _sent![sessionId.ToString()] = fingerprint;
+                File.WriteAllText(StatePath, JsonSerializer.Serialize(_sent));
+            }
         }
         catch (Exception ex)
         {

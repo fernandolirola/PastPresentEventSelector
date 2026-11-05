@@ -21,10 +21,13 @@ public sealed record LoadContext(
 /// Wraps the per-raid copy of a map. SPT clones the location base for every raid, so edits here never
 /// touch the database and run after map mods like ABPS have rebuilt their spawns.
 /// </summary>
-public sealed class RaidContext(LocationBase location, string mapId, LocationTable locations, ICloner cloner)
+public sealed class RaidContext(LocationBase location, string mapId, LocationTable locations, ICloner cloner, bool preview = false)
 {
     public LocationBase Location { get; } = location;
     public string MapId { get; } = mapId;
+
+    /// <summary>The page's preview copy: edits to the map are fine, state shared with other mods is not.</summary>
+    public bool IsPreview { get; } = preview;
 
     public bool Is(params string[] maps) => maps.Contains(MapId, StringComparer.OrdinalIgnoreCase);
 

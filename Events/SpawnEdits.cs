@@ -71,12 +71,14 @@ public static class SpawnEdits
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var covered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var remaining = new List<SPTarkov.Server.Core.Models.Eft.Common.BossLocationSpawn>();
+        // the spawn that takes the new zones when none of the old ones were kept
+        var fallback = own.FirstOrDefault(s => string.IsNullOrEmpty(s.TriggerId));
 
         foreach (var spawn in own)
         {
             var current = (spawn.BossZone ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             var kept = current.Where(requested.Contains).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-            if (current.Length > 0 && kept.Length == 0)
+            if (current.Length > 0 && kept.Length == 0 && spawn != fallback)
             {
                 spawns.Remove(spawn);
                 continue;
@@ -87,8 +89,18 @@ public static class SpawnEdits
         }
 
         var added = requested.Except(covered, StringComparer.OrdinalIgnoreCase).ToArray();
-        if (added.Length > 0 && remaining.FirstOrDefault(s => string.IsNullOrEmpty(s.TriggerId)) is { } primary)
-            primary.BossZone = string.Join(",", (primary.BossZone ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Concat(added));
+        if (fallback is not null)
+        {
+            var zonesNow = (fallback.BossZone ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var kept = zonesNow.Where(requested.Contains).ToArray();
+            if (zonesNow.Length > 0 && kept.Length == 0 && added.Length == 0)
+            {
+                spawns.Remove(fallback);
+                remaining.Remove(fallback);
+            }
+            else if (added.Length > 0)
+                fallback.BossZone = string.Join(",", kept.Concat(added));
+        }
         return remaining;
     }
 }

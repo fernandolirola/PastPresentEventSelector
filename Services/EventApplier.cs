@@ -39,7 +39,7 @@ public sealed class EventApplier(
         }
         if (globals.Configuration?.Health?.Effects?.ZombieInfection is { } toxin)
         {
-            if (m.ToxinHydration != defaults.ToxinHydration) toxin.Dehydration = m.ToxinHydration;
+            if (m.ToxinDehydration != defaults.ToxinDehydration) toxin.Dehydration = -m.ToxinDehydration;
             if (m.ToxinHearing != defaults.ToxinHearing) toxin.HearingDebuffPercentage = m.ToxinHearing / 100;
         }
     }

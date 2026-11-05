@@ -23,62 +23,20 @@ public class Plugin : BaseUnityPlugin
     private void Awake()
     {
         var harmony = new Harmony("zezinho.ppes.client");
-        try
-        {
-            RitualGroupSpawn.Enable(harmony, Logger);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning($"Ritual group fix not applied: {ex.Message}");
-        }
-        try
-        {
-            ZombieHiding.Enable(harmony);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning($"Zombie hiding setting not applied: {ex.Message}");
-        }
-        try
-        {
-            MoreBotsWaveHeadroom.Enable(harmony, Logger);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning($"MoreBotsAPI wave headroom not applied: {ex.Message}");
-        }
-        try
-        {
-            CustomFactionSupport.Enable(harmony);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning($"Custom faction support not applied: {ex.Message}");
-        }
-        try
-        {
-            FactionSpawnPoints.Enable(harmony);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning($"Faction spawn point fix not applied: {ex.Message}");
-        }
-        try
-        {
-            InfectedMeleeFix.Enable(harmony);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning($"Infected melee fix not applied: {ex.Message}");
-        }
-        try
-        {
-            BossMisfire.Enable(harmony);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning($"Boss misfire setting not applied: {ex.Message}");
-        }
+        Try("Ritual group fix", () => RitualGroupSpawn.Enable(harmony, Logger));
+        Try("Zombie hiding setting", () => ZombieHiding.Enable(harmony));
+        Try("MoreBotsAPI wave headroom", () => MoreBotsWaveHeadroom.Enable(harmony, Logger));
+        Try("Custom faction support", () => CustomFactionSupport.Enable(harmony));
+        Try("Faction spawn point fix", () => FactionSpawnPoints.Enable(harmony));
+        Try("Infected melee fix", () => InfectedMeleeFix.Enable(harmony));
+        Try("Boss misfire setting", () => BossMisfire.Enable(harmony));
+    }
+
+    // each fix is independent, so one that no longer matches the game must not block the others
+    private void Try(string name, Action enable)
+    {
+        try { enable(); }
+        catch (Exception ex) { Logger.LogWarning($"{name} not applied: {ex.Message}"); }
     }
 }
 

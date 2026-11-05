@@ -186,14 +186,14 @@ public sealed class MechanicsSettings
     public double RitualExitTime { get; set; } = 3;
     /// <summary>Halloween 2023 ritual: how many times faster stamina drains.</summary>
     public double RitualStamina { get; set; } = 3;
-    /// <summary>Zombie infection: hydration lost per second.</summary>
-    public double ToxinHydration { get; set; } = 10;
+    /// <summary>Zombie infection: how fast hydration drains, written to the game as a negative value.</summary>
+    public double ToxinDehydration { get; set; } = 0.84;
     /// <summary>Zombie infection: hearing lost, in percent.</summary>
-    public double ToxinHearing { get; set; } = 33;
+    public double ToxinHearing { get; set; } = 20;
 
     public MechanicsSettings Clone() => (MechanicsSettings)MemberwiseClone();
     public bool SameAs(MechanicsSettings o) => KollontayJam == o.KollontayJam && VengefulJam == o.VengefulJam && RitualExitTime == o.RitualExitTime
-        && RitualStamina == o.RitualStamina && ToxinHydration == o.ToxinHydration && ToxinHearing == o.ToxinHearing;
+        && RitualStamina == o.RitualStamina && ToxinDehydration == o.ToxinDehydration && ToxinHearing == o.ToxinHearing;
 }
 
 public sealed class PpesConfig
