@@ -1,0 +1,290 @@
+@inherits PpesSection
+@inject ISnackbar Snackbar
+
+<section class="ppes-section">
+    <div class="ppes-section-head">
+        <MudIcon Icon="@Icons.Material.Filled.History" Class="ppes-accent" />
+        <div>
+            <MudText Typo="Typo.h5">@T("Eventos antigos", "Past events")</MudText>
+            <MudText Typo="Typo.body2" Class="spt-muted">
+                @T($"{Working.Events.Count} de {EventCatalog.PastEvents.Count} ligados.", $"{Working.Events.Count} of {EventCatalog.PastEvents.Count} on.")
+            </MudText>
+        </div>
+    </div>
+
+    <div class="ppes-toolbar">
+        <input class="ppes-input ppes-search" type="search" placeholder="@T("Buscar evento...", "Search events...")" @bind="search" @bind:event="oninput" />
+        <select class="ppes-input" @bind="mapFilter" aria-label="@T("Mapa", "Map")">
+            <option value="">@T("Todos os mapas", "All maps")</option>
+            @foreach (var m in GameMaps.All)
+            {
+                <option value="@m.Id">@T(m.NamePt, m.NameEn)</option>
+            }
+        </select>
+        <select class="ppes-input" @bind="kindFilter" aria-label="@T("Tipo", "Type")">
+            <option value="">@T("Todos os tipos", "All types")</option>
+            @foreach (var k in KindList)
+            {
+                <option value="@k.ToString()">@KindLabel(k)</option>
+            }
+        </select>
+        <div class="ppes-filters">
+            @foreach (var (value, pt, en) in Filters)
+            {
+                <button class="@(filter == value ? "ppes-on" : "")" @onclick="@(() => filter = value)">@T(pt, en)</button>
+            }
+        </div>
+        <div class="ppes-segmented ppes-view" role="group" aria-label="@T("Visualização", "View")">
+            <button class="@(Config.Saved.View == "grid" ? "ppes-on" : "")" title="@T("Cards", "Cards")" @onclick="@(() => Config.Update(c => c.View = "grid"))"><MudIcon Icon="@Icons.Material.Filled.GridView" /></button>
+            <button class="@(Config.Saved.View == "list" ? "ppes-on" : "")" title="@T("Lista", "List")" @onclick="@(() => Config.Update(c => c.View = "list"))"><MudIcon Icon="@Icons.Material.Filled.ViewList" /></button>
+            <button class="@(Config.Saved.GroupByYear ? "ppes-on" : "")" title="@T("Agrupar por ano", "Group by year")" @onclick="@(() => Config.Update(c => c.GroupByYear = !c.GroupByYear))"><MudIcon Icon="@Icons.Material.Filled.Timeline" /></button>
+        </div>
+    </div>
+
+    <div class="ppes-legend">
+        <span><span class="ppes-tag ppes-tag-ready">@TagLabel(EventTag.Ready)</span> @T("o SPT j\u00e1 tem tudo, s\u00f3 liga", "SPT already has it, just switched on")</span>
+        <span><span class="ppes-tag ppes-tag-simulated">@TagLabel(EventTag.Simulated)</span> @T("recriado com dados do servidor", "recreated from server data")</span>
+        <span><span class="ppes-tag ppes-tag-experimental">@TagLabel(EventTag.Experimental)</span> @T("c\u00f3digo antigo do jogo religado, teste antes", "old game code switched back on, test it first")</span>
+    </div>
+
+    @if (!Visible.Any())
+    {
+        <span class="ppes-hint">@T("Nenhum evento com esses filtros.", "No events match these filters.")</span>
+    }
+
+    @foreach (var group in Groups)
+    {
+        @if (group.Year is { } year)
+        {
+            <div class="ppes-year"><span>@year</span><span class="ppes-year-count">@group.Events.Count</span></div>
+        }
+        <div class="@(Config.Saved.View == "list" ? "ppes-list" : "ppes-grid")">
+            @foreach (var e in group.Events)
+            {
+                @if (Config.Saved.View == "list") { @ListRow(e) } else { @Card(e) }
+            }
+        </div>
+    }
+</section>
+
+@code {
+    private string filter = "all";
+    private string search = "";
+    private string mapFilter = "";
+    private string kindFilter = "";
+
+    private static readonly (string Value, string Pt, string En)[] Filters =
+    [
+        ("all", "Todos", "All"),
+        ("on", "Ligados", "On"),
+        ("Ready", "Prontos", "Ready"),
+        ("Simulated", "Simulados", "Simulated"),
+        ("Experimental", "Experimentais", "Experimental"),
+    ];
+
+    private static readonly EventKind[] KindList =
+        [EventKind.Bosses, EventKind.Quests, EventKind.Traders, EventKind.Flea, EventKind.Airdrops, EventKind.Hideout, EventKind.Rules, EventKind.Access, EventKind.Hazard];
+
+    private IEnumerable<PastEventDef> Visible => EventCatalog.PastEvents.Where(e =>
+        (filter switch
+        {
+            "all" => true,
+            "on" => Working.HasEvent(e.Id),
+            _ => e.Tag.ToString() == filter,
+        })
+        && (mapFilter == "" || e.Maps.Contains(mapFilter))
+        && (kindFilter == "" || (Enum.TryParse<EventKind>(kindFilter, out var kind) && e.AllKinds.HasFlag(kind)))
+        && (search.Trim() == "" || e.Name.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase)
+            || e.DescEn.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase) || e.DescPt.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase)));
+
+    private sealed record EventGroup(int? Year, List<PastEventDef> Events);
+
+    private IEnumerable<EventGroup> Groups => Config.Saved.GroupByYear
+        ? Visible.GroupBy(e => e.Year).OrderByDescending(g => g.Key).Select(g => new EventGroup(g.Key, g.ToList()))
+        : [new EventGroup(null, Visible.ToList())];
+
+    private void Toggle(PastEventDef e, bool on)
+    {
+        var turnedOff = on ? GroupMates(e).Where(o => Working.HasEvent(o.Id)).ToList() : [];
+        Draft.Edit(w =>
+        {
+            w.Events.RemoveAll(x => turnedOff.Any(o => o.Id == x) || string.Equals(x, e.Id, StringComparison.OrdinalIgnoreCase));
+            if (on) w.Events.Add(e.Id);
+        });
+        if (!on) return;
+        foreach (var other in turnedOff)
+            Snackbar.Add(T($"{other.Name} foi desligado: n\u00e3o combina com {e.Name}.", $"{other.Name} was turned off: it can't run with {e.Name}."), Severity.Info);
+        foreach (var need in MissingNeeds(e))
+            Snackbar.Add(need.Partial
+                ? T($"{need.Requirement.Name} n\u00e3o est\u00e1 instalado: {e.Name} roda sem {need.LostPt}.", $"{need.Requirement.Name} is not installed: {e.Name} runs without {need.LostEn}.")
+                : T($"{need.Requirement.Name} n\u00e3o est\u00e1 instalado: {e.Name} n\u00e3o vai fazer nada.", $"{need.Requirement.Name} is not installed: {e.Name} will do nothing."),
+                Severity.Warning);
+    }
+
+    private static List<ModNeed> MissingNeeds(PastEventDef e) => e.AllNeeds.Where(n => !n.Requirement.Installed).ToList();
+
+    private static IEnumerable<PastEventDef> GroupMates(PastEventDef e) =>
+        e.Group is null ? [] : EventCatalog.PastEvents.Where(o => o.Group == e.Group && o.Id != e.Id);
+
+    /// <summary>Other picked events changing the same thing, outside an exclusive group (those are handled by Toggle).</summary>
+    private List<(string Touch, List<string> Events)> Overlaps(PastEventDef e)
+    {
+        if (!Working.HasEvent(e.Id)) return [];
+        var mates = GroupMates(e).Select(m => m.Id).ToHashSet();
+        var others = Working.Events.Where(id => id != e.Id && !mates.Contains(id)).Select(EventCatalog.Past).OfType<PastEventDef>().ToList();
+        return e.Touches
+            .Select(t => (t, others.Where(o => o.Touches.Contains(t)).Select(o => o.Name).ToList()))
+            .Where(x => x.Item2.Count > 0)
+            .ToList();
+    }
+
+    private RenderFragment Card(PastEventDef e) => __builder =>
+    {
+        var on = Working.HasEvent(e.Id);
+        <MudPaper Elevation="0" Class="@($"ppes-card spt-panel {(on ? "ppes-card-on" : "")}")">
+            <div class="ppes-card-head">
+                <div>
+                    <MudText Typo="Typo.h6">@e.Name</MudText>
+                    <span class="ppes-meta">@WhenText(e.When)<WikiLink Url="@EventCatalog.WikiUrl(e.Wiki)" /></span>
+                </div>
+                <MudSwitch T="bool" Value="@on" ValueChanged="@(v => Toggle(e, v))" Color="Color.Warning" aria-label="@e.Name" />
+            </div>
+            <MudText Typo="Typo.body2" Class="spt-muted">@T(e.DescPt, e.DescEn)</MudText>
+            @ImpactChips(e)
+            @ConflictNotes(e)
+            <div class="ppes-card-foot">
+                <span class="@($"ppes-tag ppes-tag-{e.Tag.ToString().ToLowerInvariant()}")">@TagLabel(e.Tag)</span>
+                @NeedBadge(e)
+                <QuestInfo Quests="@EventCatalog.QuestLinks(e)" />
+                <span class="ppes-hint ppes-foot-end">@(e.NeedsRestart ? T("Pede reiniciar o servidor", "Needs a server restart") : T("Vale na pr\u00f3xima raid", "Applies from the next raid"))</span>
+            </div>
+        </MudPaper>
+    };
+
+    private RenderFragment ListRow(PastEventDef e) => __builder =>
+    {
+        var on = Working.HasEvent(e.Id);
+        <div class="@($"ppes-row-item spt-panel {(on ? "ppes-card-on" : "")}")">
+            <MudSwitch T="bool" Value="@on" ValueChanged="@(v => Toggle(e, v))" Color="Color.Warning" aria-label="@e.Name" />
+            <div class="ppes-row-main">
+                <strong>@e.Name</strong>
+                <span class="ppes-meta">@WhenText(e.When)<WikiLink Url="@EventCatalog.WikiUrl(e.Wiki)" /></span>
+            </div>
+            <span class="ppes-row-desc spt-muted" title="@T(e.DescPt, e.DescEn)">@T(e.DescPt, e.DescEn)</span>
+            <span class="ppes-row-kinds">@KindIcons(e)</span>
+            <span class="ppes-row-tags">
+                <QuestInfo Quests="@EventCatalog.QuestLinks(e)" />
+                @NeedBadge(e)
+                <span class="@($"ppes-tag ppes-tag-{e.Tag.ToString().ToLowerInvariant()}")">@TagLabel(e.Tag)</span>
+            </span>
+        </div>
+        @ConflictNotes(e)
+    };
+
+    private RenderFragment ImpactChips(PastEventDef e) => __builder =>
+    {
+        <div class="ppes-impact">
+            @KindIcons(e)
+            @if (e.Maps.Length == GameMaps.All.Count)
+            {
+                <span class="ppes-mapchip">@T("Todos os mapas", "All maps")</span>
+            }
+            else
+            {
+                @foreach (var m in GameMaps.All.Where(m => e.Maps.Contains(m.Id)))
+                {
+                    <span class="ppes-mapchip">@T(m.NamePt, m.NameEn)</span>
+                }
+            }
+        </div>
+    };
+
+    private RenderFragment KindIcons(PastEventDef e) => __builder =>
+    {
+        var kinds = e.AllKinds;
+        @foreach (var k in KindList.Where(k => kinds.HasFlag(k)))
+        {
+            <span class="ppes-kind" title="@KindLabel(k)"><MudIcon Icon="@KindIcon(k)" /></span>
+        }
+    };
+
+    private RenderFragment NeedBadge(PastEventDef e) => __builder =>
+    {
+        foreach (var need in e.AllNeeds)
+        {
+            var mod = need.Requirement;
+            var title = mod.Installed
+                ? T($"Usa o mod {mod.Name}, que est\u00e1 instalado.", $"Uses the {mod.Name} mod, which is installed.")
+                : need.Partial
+                    ? T($"O mod {mod.Name} n\u00e3o est\u00e1 instalado, ent\u00e3o o evento fica sem {need.LostPt}.", $"The {mod.Name} mod is not installed, so the event runs without {need.LostEn}.")
+                    : T($"Precisa do mod {mod.Name}, que n\u00e3o est\u00e1 instalado.", $"Needs the {mod.Name} mod, which is not installed.");
+            <span class="@($"ppes-need {(mod.Installed ? "ppes-need-ok" : "ppes-need-missing")}")" title="@title">
+                <MudIcon Icon="@(mod.Installed ? Icons.Material.Filled.Extension : Icons.Material.Filled.ExtensionOff)" /> @mod.Name
+            </span>
+        }
+    };
+
+    private RenderFragment ConflictNotes(PastEventDef e) => __builder =>
+    {
+        var mates = GroupMates(e).ToList();
+        var overlaps = Overlaps(e);
+        var missing = MissingNeeds(e);
+        if (mates.Count == 0 && overlaps.Count == 0 && missing.Count == 0) return;
+        <div class="ppes-conflicts">
+            @foreach (var need in missing)
+            {
+                <span class="ppes-conflict ppes-conflict-need">
+                    <MudIcon Icon="@Icons.Material.Filled.Extension" />
+                    @(need.Partial
+                        ? T($"O mod {need.Requirement.Name} n\u00e3o est\u00e1 instalado, ent\u00e3o o evento fica sem {need.LostPt}. O resto funciona.", $"The {need.Requirement.Name} mod is not installed, so the event runs without {need.LostEn}. The rest works.")
+                        : T($"Precisa do mod {need.Requirement.Name}, que n\u00e3o est\u00e1 instalado. Sem ele o evento n\u00e3o faz nada.", $"Needs the {need.Requirement.Name} mod, which is not installed. Without it the event does nothing."))
+                    <a href="@need.Requirement.ForgeUrl" target="_blank" rel="noopener noreferrer">@T("Baixar no Forge", "Get it on the Forge")</a>
+                </span>
+            }
+            @if (mates.Count > 0)
+            {
+                <span class="ppes-conflict"><MudIcon Icon="@Icons.Material.Filled.Block" /> @T("S\u00f3 um por vez com: ", "Only one at a time with: ")@string.Join(", ", mates.Select(m => m.Name))</span>
+            }
+            @foreach (var (touch, names) in overlaps)
+            {
+                var label = EventCatalog.TouchNames.TryGetValue(touch, out var n) ? T(n.Pt, n.En) : touch;
+                <span class="ppes-conflict ppes-conflict-soft"><MudIcon Icon="@Icons.Material.Filled.CallSplit" /> @T($"Tamb\u00e9m mexe em {label}: ", $"Also changes {label}: ")@string.Join(", ", names)</span>
+            }
+        </div>
+    };
+
+    private string KindLabel(EventKind kind) => kind switch
+    {
+        EventKind.Bosses => T("Chefes e grupos", "Bosses and groups"),
+        EventKind.Quests => T("Quests", "Quests"),
+        EventKind.Traders => T("Traders", "Traders"),
+        EventKind.Flea => T("Mercado (flea)", "Flea market"),
+        EventKind.Airdrops => T("Airdrops", "Airdrops"),
+        EventKind.Hideout => T("Hideout", "Hideout"),
+        EventKind.Rules => T("Regras e status", "Rules and stats"),
+        EventKind.Access => T("Acesso a mapas", "Map access"),
+        EventKind.Hazard => T("Perigos no mapa", "Map hazards"),
+        _ => kind.ToString(),
+    };
+
+    private static string KindIcon(EventKind kind) => kind switch
+    {
+        EventKind.Bosses => Icons.Material.Filled.MilitaryTech,
+        EventKind.Quests => Icons.Material.Filled.Assignment,
+        EventKind.Traders => Icons.Material.Filled.Storefront,
+        EventKind.Flea => Icons.Material.Filled.ShoppingCart,
+        EventKind.Airdrops => Icons.Material.Filled.FlightLand,
+        EventKind.Hideout => Icons.Material.Filled.Home,
+        EventKind.Rules => Icons.Material.Filled.Tune,
+        EventKind.Access => Icons.Material.Filled.VpnKey,
+        EventKind.Hazard => Icons.Material.Filled.Warning,
+        _ => Icons.Material.Filled.Circle,
+    };
+
+    private string TagLabel(EventTag tag) => tag switch
+    {
+        EventTag.Ready => T("Pronto", "Ready"),
+        EventTag.Simulated => T("Simulado", "Simulated"),
+        _ => T("Experimental", "Experimental"),
+    };
+}

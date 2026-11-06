@@ -7,7 +7,7 @@ namespace PPES;
 
 public record PpesMetadata : IModMetadata, IModBlazorMetadata
 {
-    public string ModGuid { get; init; } = "com.zezinho.pastpresenteventselector";
+    public string ModGuid { get; init; } = PpesIds.Guid;
     public string Name { get; init; } = "Past & Present Event Selector";
     public string Author { get; init; } = "zezinho";
     public List<string>? Contributors { get; init; } = [];

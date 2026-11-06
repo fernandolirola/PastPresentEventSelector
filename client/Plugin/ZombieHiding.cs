@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -44,11 +45,17 @@ internal static class ClientMechanics
         }
     }
 
-    public static bool BotsHideFromZombies(string json)
+    /// <summary>A number setting from the latest values, or <paramref name="fallback"/> when the server did not send it.</summary>
+    public static float Number(string key, float fallback)
     {
-        var match = Regex.Match(json, "\"botsHideFromZombies\"\\s*:\\s*(true|false)\\b");
-        // Older servers do not send this setting; preserve their game behavior.
-        return !match.Success || match.Groups[1].Value == "true";
+        var match = Regex.Match(Read(), "\"" + key + @"""\s*:\s*(-?[\d.eE+-]+)");
+        return match.Success && float.TryParse(match.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : fallback;
+    }
+
+    public static bool Bool(string key, bool fallback)
+    {
+        var match = Regex.Match(Read(), "\"" + key + @"""\s*:\s*(true|false)\b");
+        return match.Success ? match.Groups[1].Value == "true" : fallback;
     }
 }
 
@@ -63,6 +70,6 @@ internal static class ZombieHiding
 
     private static void AfterShallUseNow(ref bool __result)
     {
-        if (__result && !ClientMechanics.BotsHideFromZombies(ClientMechanics.Read())) __result = false;
+        if (__result && !ClientMechanics.Bool("botsHideFromZombies", true)) __result = false;
     }
 }

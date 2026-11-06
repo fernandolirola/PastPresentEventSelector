@@ -39,8 +39,7 @@ internal sealed class PpesFactions(
         foreach (var def in loaded) FactionCatalog.MarkReady(def.Role);
 
         if (loaded.Count > 0)
-            logger.Info($"{ConfigService.LogPrefix} Built-in factions ready: {string.Join(", ", loaded.Select(d => d.NameEn))}" +
-                        (FactionCatalog.BlackDivision ? " (Black Division found)" : ""));
+            logger.Info($"{ConfigService.LogPrefix} Built-in factions ready: {string.Join(", ", loaded.Select(d => d.NameEn))}");
     }
 
     private bool AddBotType(FactionDef def)

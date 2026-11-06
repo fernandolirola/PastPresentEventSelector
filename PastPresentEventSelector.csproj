@@ -6,7 +6,6 @@
     <OutputType>Library</OutputType>
     <AssemblyName>PastPresentEventSelector</AssemblyName>
     <RootNamespace>PPES</RootNamespace>
-    <Version>1.7.5</Version>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
     <GenerateDependencyFile>false</GenerateDependencyFile>
@@ -31,6 +30,7 @@
     <Content Remove="wwwroot\**" />
     <None Include="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
     <EmbeddedResource Include="Quests\*.json" />
+    <InternalsVisibleTo Include="UiRegression" />
     <Content Remove="Quests\*.json" />
     <None Remove="tools\**" />
     <Compile Remove="tools\**" />

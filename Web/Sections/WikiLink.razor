@@ -1,0 +1,11 @@
+@inherits PpesComponent
+
+@if (Url is not null)
+{
+    <span class="ppes-dot">·</span>
+    <a class="ppes-wiki" href="@Url" target="_blank" rel="noopener noreferrer" title="@T("Abrir na wiki", "Open on the wiki")">Wiki <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Class="ppes-wiki-icon" /></a>
+}
+
+@code {
+    [Parameter] public string? Url { get; set; }
+}

@@ -1,13 +1,12 @@
 using PPES.Events;
 using PPES.Models;
-using PPES.Patches;
+using Effects = PPES.Events.Effects;
 using SPTarkov.Common.Models.Logging;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Spt.Config;
 using SPTarkov.Server.Core.Models.Spt.Tables;
-using SPTarkov.Server.Core.Utils.Cloners;
 
 namespace PPES.Services;
 
@@ -15,6 +14,7 @@ namespace PPES.Services;
 [Injectable(TypePriority = OnLoadOrder.PostLoad + 5000000)]
 public sealed class EventApplier(
     ConfigService config,
+    SeasonalCalendar calendar,
     GlobalTable globals,
     TradersTable traders,
     HideoutTable hideout,
@@ -22,12 +22,47 @@ public sealed class EventApplier(
     QuestConfig questConfig,
     AirdropConfig airdropConfig,
     LocationConfig locationConfig,
-    TraderMessageService traderMessages,
-    SeasonalBossRegistry seasonalBosses,
-    SeasonalEventConfig seasonalConfig,
-    ICloner cloner,
     ISptLogger<EventApplier> logger) : IOnLoad
 {
+    public Task OnLoadAsync(CancellationToken cancellationToken)
+    {
+        var context = new LoadContext(globals, traders, hideout, locations, questConfig, airdropConfig, locationConfig, logger);
+        var applied = new List<string>();
+
+        foreach (var id in config.Applied.Events)
+        {
+            if (EventCatalog.Past(id) is not { } def) continue;
+            if (def.MissingRequirement is { } missing)
+            {
+                logger.Warning($"{ConfigService.LogPrefix} {def.Name} needs {missing.Name}, skipped");
+                continue;
+            }
+            try
+            {
+                def.OnLoad?.Invoke(context);
+                if (def.FreeAccess.Length > 0) Effects.RemoveAccessKeys(context, def.FreeAccess);
+                if (def.Mortar.Length > 0) Effects.EnableMortarStrike(context, def.Mortar);
+                foreach (var quest in def.Quests)
+                    questConfig.EventQuests?.Remove(new MongoId(quest));
+                applied.Add(def.Name);
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"{ConfigService.LogPrefix} {def.Name} could not be applied: {ex.Message}");
+            }
+        }
+
+        if (SeasonalState.Started(config, calendar).DisableSummonEvent && globals.Configuration?.EventSettings is { } eventSettings)
+            eventSettings.EventActive = false;
+
+        ApplyMechanics(config.Applied.Mechanics);
+
+        logger.Success(applied.Count == 0
+            ? $"{ConfigService.LogPrefix} No past events picked"
+            : $"{ConfigService.LogPrefix} Past events: {string.Join(", ", applied)}");
+        return Task.CompletedTask;
+    }
+
     /// <summary>Only values that differ from the game's are written, so another mod's change stays when nothing was asked.</summary>
     private void ApplyMechanics(MechanicsSettings m)
     {
@@ -42,46 +77,5 @@ public sealed class EventApplier(
             if (m.ToxinDehydration != defaults.ToxinDehydration) toxin.Dehydration = -m.ToxinDehydration;
             if (m.ToxinHearing != defaults.ToxinHearing) toxin.HearingDebuffPercentage = m.ToxinHearing / 100;
         }
-    }
-
-    public Task OnLoadAsync(CancellationToken cancellationToken)
-    {
-        config.MarkApplied();
-        EventSchedule.LoadRaids(config);
-        var picked = config.Applied.Events;
-        var context = new LoadContext(globals, traders, hideout, locations, questConfig, airdropConfig, locationConfig, logger);
-        var applied = new List<string>();
-
-        foreach (var id in picked)
-        {
-            if (EventCatalog.Past(id) is not { } def) continue;
-            try
-            {
-                def.OnLoad?.Invoke(context);
-                foreach (var quest in def.Quests)
-                    questConfig.EventQuests?.Remove(new MongoId(quest));
-                applied.Add(def.Name);
-            }
-            catch (Exception ex)
-            {
-                logger.Error($"{ConfigService.LogPrefix} {def.Name} could not be applied: {ex.Message}");
-            }
-        }
-
-        if (seasonalBosses.DisableSummonEvent && globals.Configuration?.EventSettings is { } eventSettings)
-            eventSettings.EventActive = false;
-
-        ApplyMechanics(config.Saved.Mechanics);
-
-        RaidLocationPatch.Init(config, locations, cloner, logger, seasonalBosses, seasonalConfig);
-        new RaidLocationPatch().Enable();
-        new EndRaidRolePatch().Enable();
-        GameStartPatch.Init(traderMessages);
-        new GameStartPatch().Enable();
-
-        logger.Success(applied.Count == 0
-            ? $"{ConfigService.LogPrefix} No past events picked"
-            : $"{ConfigService.LogPrefix} Past events: {string.Join(", ", applied)}");
-        return Task.CompletedTask;
     }
 }

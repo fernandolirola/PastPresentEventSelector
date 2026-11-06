@@ -1,0 +1,296 @@
+@inherits PpesSection
+
+<section class="ppes-section">
+    <div class="ppes-section-head">
+        <MudIcon Icon="@Icons.Material.Filled.Event" Class="ppes-accent" />
+        <div>
+            <MudText Typo="Typo.h5">@T("Eventos sazonais", "Seasonal events")</MudText>
+            <MudText Typo="Typo.body2" Class="spt-muted">
+                @T($"Hoje \u00e9 {FormatDate(Today)}. No modo Autom\u00e1tico, o evento liga sozinho nas datas dele.", $"Today is {FormatDate(Today)}. In Auto mode an event turns on by itself during its dates.")
+            </MudText>
+        </div>
+    </div>
+
+    @if (EventCatalog.Seasonal.Count(s => IsSeasonalActive(s.Id)) > 1)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+            @T("Mais de um evento sazonal ligado. O SPT aplica todos, mas as quests e itens de evento seguem s\u00f3 o \u00faltimo da lista. Pode haver efeitos estranhos.",
+               "More than one seasonal event is on. SPT applies them all, but event quests and items only follow the last one in the list. Expect some odd results.")
+        </MudAlert>
+    }
+
+    <div class="ppes-seasonal-workspace">
+        <nav class="ppes-seasonal-picker" aria-label="@T("Escolher evento sazonal", "Choose seasonal event")">
+            @foreach (var item in EventCatalog.Seasonal)
+            {
+                var active = IsSeasonalActive(item.Id);
+                <button type="button" class="ppes-seasonal-pick @(Selected == item.Id ? "ppes-selected" : "")" aria-current="@(Selected == item.Id ? "page" : null)" @onclick="@(() => Open.InvokeAsync($"seasonal/{item.Id}"))">
+                    <span><strong>@T(item.NamePt, item.NameEn)</strong><small>@WindowText(item.Id)</small></span>
+                    <span class="ppes-status @(active ? "ppes-status-on" : "")">@Status(active)</span>
+                </button>
+            }
+            <button type="button" class="ppes-chip" @onclick="@(() => Open.InvokeAsync("settings/rotation"))">@T("Rota\u00e7\u00e3o dos sazonais", "Seasonal rotation")</button>
+        </nav>
+        <div class="ppes-seasonal-detail">
+        @if (EventCatalog.SeasonalById(Selected) is { } s)
+        {
+            var mode = Working.ModeOf(s.Id);
+            var active = IsSeasonalActive(s.Id);
+            var parts = PartsOf(s.Id);
+            <MudPaper Elevation="0" Class="@($"ppes-card spt-panel {(active ? "ppes-card-on" : "")}")">
+                <div class="ppes-card-head">
+                    <div>
+                        <MudText Typo="Typo.h6">@T(s.NamePt, s.NameEn)</MudText>
+                        <span class="ppes-meta">@WindowText(s.Id)<WikiLink Url="@EventCatalog.WikiUrl(s.Wiki)" /></span>
+                    </div>
+                    <span class="@($"ppes-status {(active ? "ppes-status-on" : "")}")">@Status(active)</span>
+                </div>
+                <MudText Typo="Typo.body2" Class="spt-muted">@T(s.DescPt, s.DescEn)</MudText>
+                <div class="ppes-segmented" role="radiogroup">
+                    @foreach (var (value, pt, en) in Modes)
+                    {
+                        <button role="radio" aria-checked="@(mode == value ? "true" : "false")" class="@(mode == value ? "ppes-on" : "")" @onclick="@(() => Draft.Edit(w => w.Seasonal[s.Id] = value))">@T(pt, en)</button>
+                    }
+                </div>
+                @if (parts is not null)
+                {
+                    <div class="@($"ppes-parts {(active ? "" : "ppes-parts-off")}")">
+                        <span class="ppes-label">@T(parts.TitlePt, parts.TitleEn)</span>
+                        @if (s.Id == SeasonalIds.Halloween)
+                        {
+                            var halloween = Working.Halloween;
+                            <div class="@($"ppes-part-status {(halloween.ZombiesOn ? "ppes-part-status-on" : "ppes-part-status-off")}")">
+                                <strong>@(halloween.ZombiesOn ? T("Aparecimento de zumbis: LIGADO", "Zombie spawning: ON") : T("Aparecimento de zumbis: DESLIGADO", "Zombie spawning: OFF"))</strong>
+                                <span>@HalloweenZombieStatus()</span>
+                            </div>
+                            <label class="ppes-behavior">
+                                <span class="ppes-part-name">@T("Comportamento dos bots com zumbis", "Bot behavior with zombies")</span>
+                                <select class="ppes-input" value="@(halloween.BotsHideFromZombies ? "hide" : "normal")"
+                                        @onchange="@(e => Draft.Edit(w => w.Halloween.BotsHideFromZombies = e.Value?.ToString() == "hide"))">
+                                    <option value="normal">@T("IA normal (patrulha e combate)", "Normal AI (patrol and combat)")</option>
+                                    <option value="hide">@T("Esconder dos zumbis (padr\u00e3o do jogo)", "Hide from zombies (game default)")</option>
+                                </select>
+                                <span class="ppes-part-hint">@T("IA normal remove a ordem de se esconder do Halloween. Movimento e combate seguem a IA e as regras de hostilidade ativas. Requer o plugin do cliente; vale em at\u00e9 30 segundos ap\u00f3s salvar, sem reiniciar.", "Normal AI removes the Halloween hiding order. Movement and combat follow the active AI and hostility rules. Requires the client plugin; applies within 30 seconds of saving, without a restart.")</span>
+                            </label>
+                            @foreach (var part in parts.List.Where(p => p.Top))
+                            {
+                                @Option(parts, part)
+                            }
+                            <details class="ppes-options" open="@expanded.Contains(s.Id)">
+                                <summary @onclick="@(() => { if (!expanded.Add(s.Id)) expanded.Remove(s.Id); })">@T("Ritual, cultistas e regras do mapa", "Ritual, cultists and map rules")</summary>
+                                <div class="ppes-option-list">
+                                    @foreach (var part in parts.List.Where(p => !p.Top))
+                                    {
+                                        @Option(parts, part)
+                                    }
+                                </div>
+                            </details>
+                        }
+                        else
+                        {
+                            @foreach (var part in parts.List) { @Option(parts, part) }
+                            @if (s.Id is SeasonalIds.Christmas or SeasonalIds.NewYears)
+                            {
+                                <span class="ppes-hint">@T("Natal e Ano Novo compartilham estas op\u00e7\u00f5es.", "Christmas and New Year share these options.")</span>
+                            }
+                        }
+                    </div>
+                }
+                <div class="ppes-card-foot">
+                    <span class="ppes-hint">@SeasonalHint(s.Id, mode)</span>
+                    <QuestInfo Quests="@EventCatalog.QuestLinks(s)" />
+                </div>
+            </MudPaper>
+        }
+        </div>
+    </div>
+</section>
+
+@code {
+    [Parameter] public string Selected { get; set; } = SeasonalIds.Halloween;
+
+    private readonly HashSet<string> expanded = [];
+
+    private static readonly (string Value, string Pt, string En)[] Modes =
+    [
+        (SeasonalMode.Auto, "Autom\u00e1tico", "Auto"),
+        (SeasonalMode.On, "Ligado", "On"),
+        (SeasonalMode.Off, "Desligado", "Off"),
+    ];
+
+    /// <param name="Property">The bool setting on the event's parts object.</param>
+    /// <param name="Top">Shown above the folded options.</param>
+    /// <param name="NeedsZombies">Does nothing until zombies are on.</param>
+    private sealed record PartDef(string Property, string Pt, string En, string PtHint, string EnHint, bool Top = false, bool NeedsZombies = false);
+
+    private sealed record PartGroup(Func<PpesConfig, object> Of, string TitlePt, string TitleEn, IReadOnlyList<PartDef> List);
+
+    private static readonly PartGroup HalloweenGroup = new(c => c.Halloween, "Partes do Halloween:", "Halloween parts:",
+    [
+        new(nameof(HalloweenParts.Ritual), "Ritual do Zryachiy (2023)", "Zryachiy ritual (2023)",
+            "Zryachiy andando pelos mapas. Matar ele come\u00e7a o ritual dos sacerdotes; se o ritual terminar, aparece o Zryachiy Vingativo (Mstyaschiy).",
+            "Zryachiy roams the maps. Killing him starts the priests' ritual; if it finishes, Vengeful Zryachiy (Mstyaschiy) appears."),
+        new(nameof(HalloweenParts.Zombies), "Zumbis e infectados (2024)", "Zombies and infected (2024)",
+            "Infectados nos mapas e a barra de infec\u00e7\u00e3o. O SPT deixa desligado por padr\u00e3o porque fica muito dif\u00edcil.",
+            "Infected on the maps and the infection meter. SPT ships it off because it gets very hard.", Top: true),
+        new(nameof(HalloweenParts.ZombieWaves), "Ondas de refor\u00e7o de zumbis", "Zombie reinforcement waves",
+            "Adiciona novas ondas at\u00e9 perto do fim do raide. Quantidade, intervalo, tipo de infectado e zona podem variar. Precisa que os zumbis estejam ligados.",
+            "Adds new waves until near the end of the raid. Count, interval, infected type and zone can vary. Requires zombies to be enabled.", Top: true, NeedsZombies: true),
+        new(nameof(HalloweenParts.Cultists), "Noite dos cultistas (2025)", "Night of the cult (2025)",
+            "Os cultistas especiais Oni, Harbinger e Ghost onde ficam os Goons.",
+            "The special cultists Oni, Harbinger and Ghost where the Goons roam."),
+        new(nameof(HalloweenParts.LabInfectedOnly), "Lab s\u00f3 com infectados (com zumbis)", "Lab with infected only (with zombies)",
+            "Com os zumbis ligados, a Lab fica sem os Raiders e os chefes normais, s\u00f3 infectados, como no SPT original.",
+            "With zombies on, the Lab loses its Raiders and usual bosses and only has infected, as in stock SPT.", NeedsZombies: true),
+        new(nameof(HalloweenParts.FreeLab), "Lab sem cart\u00e3o", "Lab without keycard",
+            "Durante o Halloween, entrar na Lab n\u00e3o precisa de cart\u00e3o.",
+            "During Halloween, entering the Lab needs no keycard."),
+        new(nameof(HalloweenParts.Outbreak2026), "Surto de 2026", "2026 outbreak",
+            "Halloween 2026: liga os zumbis, infectados em todos os mapas (Customs e Interchange tamb\u00e9m), Tagilla infectado onde h\u00e1 infectados, sem perda de karma ao matar Scavs como Scav, e as 5 quests de Halloween 2026 (Skier e Therapist). Os mapas Infected Factory e Infected Lab n\u00e3o existem no SPT, ent\u00e3o as quests usam a Factory e a Lab normais.",
+            "Halloween 2026: turns the zombies on, infected on every map (Customs and Interchange too), Infected Tagilla wherever there are infected, no karma loss for killing Scavs as a Scav, and the 5 Halloween 2026 quests (Skier and Therapist). The Infected Factory and Infected Lab maps are not in SPT, so the quests use the normal Factory and Lab."),
+        new(nameof(HalloweenParts.Loot), "Loot de Halloween", "Halloween loot",
+            "Ab\u00f3boras com doces em gavetas, jaquetas e computadores, e pistolas de sinaliza\u00e7\u00e3o e sinalizadores verde-\u00e1cido com os Scavs, como nos Halloweens de 2023 a 2025.",
+            "Pumpkins with sweets in drawers, jackets and computers, and signal pistols and acid green flares on Scavs, as in the 2023 to 2025 Halloweens."),
+    ]);
+
+    private static readonly PartGroup AprilFoolsGroup = new(c => c.AprilFools, "Partes do 1\u00ba de abril:", "April Fools parts:",
+    [
+        new(nameof(AprilFoolsParts.Winter), "Clima de inverno", "Winter weather",
+            "Neve nos mapas no 1\u00ba de abril.",
+            "Snow on the maps on April Fools."),
+        new(nameof(AprilFoolsParts.Santa), "Papai Noel nos mapas", "Santa on the maps",
+            "O Papai Noel anda pelos mapas e d\u00e1 presentes.",
+            "Santa walks the maps handing out gifts."),
+        new(nameof(AprilFoolsParts.RitualAndCult), "Ritual e cultistas", "Ritual and cultists",
+            "O ritual do Zryachiy e os cultistas especiais do Halloween.",
+            "The Zryachiy ritual and the special Halloween cultists."),
+    ]);
+
+    private static readonly PartGroup ChristmasGroup = new(c => c.Christmas, "Partes do Natal e Ano Novo:", "Christmas and New Year parts:",
+    [
+        new(nameof(ChristmasParts.Santa), "Papai Noel nos mapas (2021)", "Santa on the maps (2021)",
+            "O Papai Noel anda pelos mapas e d\u00e1 presentes. N\u00e3o atire nele.",
+            "Santa walks the maps handing out gifts. Don't shoot him."),
+        new(nameof(ChristmasParts.Hideout), "\u00c1rvore no hideout", "Hideout tree",
+            "\u00c1rvore de Natal e decora\u00e7\u00e3o no hideout.",
+            "Christmas tree and decorations in the hideout."),
+        new(nameof(ChristmasParts.Khorovod), "Khorovod (2024)", "Khorovod (2024)",
+            "O evento da \u00e1rvore nos mapas: abaste\u00e7a o gerador, defenda a \u00e1rvore e veja os bots dan\u00e7ando em volta dela.",
+            "The tree event on the maps: refuel the generator, defend the tree and watch the bots dance around it."),
+        new(nameof(ChristmasParts.WinterClothes), "Roupas de inverno nos bots", "Winter clothes on bots",
+            "PMCs e Scavs usam roupas de inverno com mais frequ\u00eancia.",
+            "PMCs and Scavs wear winter clothes more often."),
+    ]);
+
+    private static PartGroup? PartsOf(string seasonalId) => seasonalId switch
+    {
+        SeasonalIds.Halloween => HalloweenGroup,
+        SeasonalIds.Christmas or SeasonalIds.NewYears => ChristmasGroup,
+        SeasonalIds.AprilFools => AprilFoolsGroup,
+        _ => null,
+    };
+
+    private bool GetPart(PartGroup group, PartDef part) => (bool)group.Of(Working).GetType().GetProperty(part.Property)!.GetValue(group.Of(Working))!;
+
+    private void SetPart(PartGroup group, PartDef part, bool on) =>
+        Draft.Edit(w => group.Of(w).GetType().GetProperty(part.Property)!.SetValue(group.Of(w), on));
+
+    private void SetWave(string property, string? text)
+    {
+        if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)) Draft.Edit(w => Settings.Set(w.Halloween, property, value));
+    }
+
+    private RenderFragment Option(PartGroup group, PartDef part) => __builder =>
+    {
+        var on = GetPart(group, part);
+        var waiting = part.NeedsZombies && !Working.Halloween.ZombiesOn;
+        <label class="@($"ppes-part {(waiting ? "ppes-part-waiting" : "")}")">
+            <input type="checkbox" checked="@on" @onchange="@(e => SetPart(group, part, e.Value is true))" />
+            <span class="ppes-part-copy">
+                <span class="ppes-part-name">@T(part.Pt, part.En)</span>
+                <span class="ppes-part-hint">@T(part.PtHint, part.EnHint)</span>
+                @if (waiting)
+                {
+                    <span class="ppes-part-dependency">@T("Aguardando: ligue Zumbis e infectados ou Surto de 2026.", "Waiting: enable Zombies and infected or 2026 outbreak.")</span>
+                }
+            </span>
+        </label>
+        @if (part.Property == nameof(HalloweenParts.ZombieWaves) && on)
+        {
+            var h = Working.Halloween;
+            <div class="ppes-wave-settings">
+                <span class="ppes-wave-title">@T("Aleat\u00f3rio quando o m\u00ednimo e o m\u00e1ximo s\u00e3o diferentes", "Random when minimum and maximum differ")</span>
+                <label>
+                    <span>@T("Zumbis por onda", "Zombies per wave")</span>
+                    <span class="ppes-wave-range">
+                        @WaveInput(nameof(h.ZombieWaveSizeMin), h.ZombieWaveSizeMin)
+                        <span>@T("at\u00e9", "to")</span>
+                        @WaveInput(nameof(h.ZombieWaveSizeMax), h.ZombieWaveSizeMax)
+                    </span>
+                </label>
+                <label>
+                    <span>@T("Minutos entre ondas", "Minutes between waves")</span>
+                    <span class="ppes-wave-range">
+                        @WaveInput(nameof(h.ZombieWaveIntervalMin), h.ZombieWaveIntervalMin)
+                        <span>@T("at\u00e9", "to")</span>
+                        @WaveInput(nameof(h.ZombieWaveIntervalMax), h.ZombieWaveIntervalMax)
+                    </span>
+                </label>
+            </div>
+        }
+    };
+
+    private RenderFragment WaveInput(string property, int value) => __builder =>
+    {
+        var limits = Settings.LimitsOf(typeof(HalloweenParts), property)!;
+        <input class="ppes-input ppes-number" type="number" min="@limits.Min" max="@limits.Max" value="@value" @onchange="@(e => SetWave(property, e.Value?.ToString()))" />
+    };
+
+    private string HalloweenZombieStatus()
+    {
+        if (Working.Halloween.Outbreak2026)
+            return T("Ligado pelo Surto de 2026. Os infectados aparecem em todos os mapas compat\u00edveis.",
+                "Enabled by 2026 outbreak. Infected spawn on every supported map.");
+        if (Working.Halloween.Zombies)
+            return T("Ligado por Zumbis e infectados (2024). Usa os mapas e as taxas de infec\u00e7\u00e3o do evento original.",
+                "Enabled by Zombies and infected (2024). Uses the original event maps and infection rates.");
+        return T("Ligar o Halloween n\u00e3o liga os zumbis sozinho. Marque Zumbis e infectados ou Surto de 2026 abaixo.",
+            "Turning on Halloween does not enable zombies by itself. Select Zombies and infected or 2026 outbreak below.");
+    }
+
+    private string WindowText(string id)
+    {
+        var windows = Calendar.WindowsOf(id);
+        if (windows.Count == 0) return T("Sem datas no SPT", "No dates in SPT");
+        return string.Join(" + ", windows.Select(w =>
+        {
+            var start = new DateTime(2000, w.StartMonth, w.StartDay);
+            var end = new DateTime(2000, w.EndMonth, w.EndDay);
+            return start == end ? FormatDate(start) : $"{FormatDate(start)} {T("a", "to")} {FormatDate(end)}";
+        }));
+    }
+
+    /// <summary>Auto mode: days left when in season, otherwise days until the next start.</summary>
+    private string SeasonalHint(string id, string mode)
+    {
+        if (Working.SeasonalRotation.Mode != SeasonalRotationMode.Off)
+            return mode == SeasonalMode.Off ? T("Fora da rota\u00e7\u00e3o.", "Left out of the rotation.") : T("Na rota\u00e7\u00e3o: entra quando for sorteado.", "In the rotation: on when drawn.");
+        if (mode != SeasonalMode.Auto) return mode == SeasonalMode.On ? T("For\u00e7ado: ligado todo dia.", "Forced: on every day.") : T("Desligado mesmo nas datas.", "Off even during its dates.");
+        var windows = Calendar.WindowsOf(id);
+        if (windows.Count == 0) return "";
+        var today = Today;
+        var current = windows.FirstOrDefault(w => today >= new DateTime(today.Year, w.StartMonth, w.StartDay) && today <= new DateTime(today.Year, w.EndMonth, w.EndDay));
+        if (current is not null)
+        {
+            var left = (new DateTime(today.Year, current.EndMonth, current.EndDay) - today).Days;
+            return left == 0 ? T("Autom\u00e1tico: \u00faltimo dia hoje.", "Auto: last day today.") : T($"Autom\u00e1tico: termina em {left} dia(s).", $"Auto: ends in {left} day(s).");
+        }
+        var next = windows.Select(w =>
+        {
+            var start = new DateTime(today.Year, w.StartMonth, w.StartDay);
+            return start < today ? start.AddYears(1) : start;
+        }).Min();
+        var days = (next - today).Days;
+        return T($"Autom\u00e1tico: come\u00e7a em {days} dia(s).", $"Auto: starts in {days} day(s).");
+    }
+}

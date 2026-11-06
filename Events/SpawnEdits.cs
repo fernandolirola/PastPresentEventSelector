@@ -36,7 +36,7 @@ public static class SpawnEdits
             if (ctx.HomeOf(e.Role) is { } home && home != ctx.MapId)
                 ctx.AddFrom(home, e.Role, zones, addChance, escort);
             else
-                EventCatalog.Effects.AddGroup(ctx, e.Role, escort ?? "0", zones, addChance);
+                Effects.AddGroup(ctx, e.Role, escort ?? "0", zones, addChance);
         }
     }
 

@@ -3,6 +3,7 @@ using HarmonyLib;
 using PPES.Events;
 using PPES.Services;
 using SPTarkov.Common.Models.Logging;
+using SPTarkov.DI.Annotations;
 using SPTarkov.Reflection.Patching;
 using SPTarkov.Server.Core.Models.Eft.Common;
 using SPTarkov.Server.Core.Models.Spt.Config;
@@ -12,6 +13,31 @@ using SPTarkov.Server.Core.Utils.Cloners;
 
 namespace PPES.Patches;
 
+/// <summary>Runs the raid pipeline on the map copy SPT builds for a raid, with the saved selection.</summary>
+[Injectable(InjectionType.Singleton)]
+public sealed class RaidBuilder(
+    ConfigService config,
+    LocationTable locations,
+    ICloner cloner,
+    SeasonalCalendar calendar,
+    SeasonalEventConfig seasonalConfig,
+    EventSchedule schedule,
+    ISptLogger<RaidBuilder> logger)
+{
+    public void Build(LocationBase location, string name)
+    {
+        var mapId = name.ToLowerInvariant();
+        var saved = config.Saved;
+        // each generated location is a raid starting, which the "every N raids" rotation counts
+        schedule.CountRaid();
+        // seasonal events only change on restart, so SPT's startup setup is both what the raid wants and what it already has
+        var started = SeasonalState.Started(config, calendar);
+        var plan = new RaidPlan(started, started, saved.Halloween, schedule.RaidEvents(saved, DateTimeOffset.Now.DateTime), saved.SpawnsOf(mapId));
+        RaidPipeline.Run(new RaidContext(location, mapId, locations, cloner), plan, seasonalConfig,
+            (step, ex) => logger.Error($"{ConfigService.LogPrefix} {step} failed on {name}: {ex.Message}"));
+    }
+}
+
 /// <summary>
 /// Spawn and airdrop events are applied to the location copy SPT builds for each raid. ABPS rebuilds the
 /// database spawns after every raid, so editing them once at startup would not last. The same rebuild drops
@@ -19,23 +45,7 @@ namespace PPES.Patches;
 /// </summary>
 public sealed class RaidLocationPatch : AbstractPatch
 {
-    private static ConfigService? _config;
-    private static LocationTable? _locations;
-    private static ICloner? _cloner;
-    private static ISptLogger<EventApplier>? _logger;
-    private static SeasonalBossRegistry? _seasonalBosses;
-    private static SeasonalEventConfig? _seasonalConfig;
-
-    public static void Init(ConfigService config, LocationTable locations, ICloner cloner, ISptLogger<EventApplier> logger,
-        SeasonalBossRegistry seasonalBosses, SeasonalEventConfig seasonalConfig)
-    {
-        _seasonalBosses = seasonalBosses;
-        _seasonalConfig = seasonalConfig;
-        _config = config;
-        _locations = locations;
-        _cloner = cloner;
-        _logger = logger;
-    }
+    internal static RaidBuilder? Builder;
 
     protected override MethodBase? GetTargetMethod() =>
         AccessTools.Method(typeof(LocationLifecycleService), nameof(LocationLifecycleService.GenerateLocationAndLoot));
@@ -43,36 +53,7 @@ public sealed class RaidLocationPatch : AbstractPatch
     [PatchPostfix]
     public static void Postfix(LocationBase __result, string name)
     {
-        if (_config is null || _locations is null || _cloner is null || __result is null) return;
-        if (string.Equals(name, "hideout", StringComparison.OrdinalIgnoreCase)) return;
-
-        var ctx = new RaidContext(__result, name.ToLowerInvariant(), _locations, _cloner);
-        if (_seasonalBosses is not null && _seasonalConfig is not null)
-        {
-            SeasonalRaidContent.Apply(ctx, _seasonalBosses, _seasonalConfig, _cloner);
-            SeasonalRaidContent.AddZombieWaves(ctx, _seasonalBosses, _config.Saved.Halloween, _cloner);
-        }
-        // each generated location is a raid starting, which the "every N raids" rotation counts
-        EventSchedule.CountRaid(_config);
-        foreach (var id in EventSchedule.RaidEvents(_config.Saved, DateTimeOffset.Now.DateTime))
-        {
-            if (EventCatalog.Past(id) is not { OnRaid: { } onRaid } def) continue;
-            try
-            {
-                onRaid(ctx);
-            }
-            catch (Exception ex)
-            {
-                _logger?.Error($"{ConfigService.LogPrefix} {def.Name} failed on {name}: {ex.Message}");
-            }
-        }
-        try
-        {
-            SpawnEdits.Apply(ctx, _config.Saved.SpawnsOf(ctx.MapId));
-        }
-        catch (Exception ex)
-        {
-            _logger?.Error($"{ConfigService.LogPrefix} Spawn edits failed on {name}: {ex.Message}");
-        }
+        if (Builder is null || __result is null || string.Equals(name, "hideout", StringComparison.OrdinalIgnoreCase)) return;
+        Builder.Build(__result, name);
     }
 }

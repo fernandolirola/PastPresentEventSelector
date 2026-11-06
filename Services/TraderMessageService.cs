@@ -1,13 +1,7 @@
-using System.Reflection;
 using System.Text;
-using System.Text.Json;
-using HarmonyLib;
 using PPES.Events;
-using PPES.Models;
 using SPTarkov.Common.Models.Logging;
 using SPTarkov.DI.Annotations;
-using SPTarkov.Reflection.Patching;
-using SPTarkov.Server.Core.Controllers;
 using SPTarkov.Server.Core.Models.Common;
 using SPTarkov.Server.Core.Models.Enums;
 using SPTarkov.Server.Core.Services.Commerce;
@@ -19,13 +13,14 @@ namespace PPES.Services;
 /// set of active events changes, tracked per profile in messages.json.
 /// </summary>
 [Injectable(InjectionType.Singleton)]
-public sealed class TraderMessageService(ConfigService config, SeasonalCalendar calendar, MailSendService mail, ISptLogger<TraderMessageService> logger)
+public sealed class TraderMessageService(ConfigService config, SeasonalCalendar calendar, EventSchedule schedule, MailSendService mail,
+    ISptLogger<TraderMessageService> logger)
 {
     private const string FenceId = "579dc571d53a0658a154fbec";
     private readonly Lock _lock = new();
     private Dictionary<string, string>? _sent;
 
-    private string StatePath => Path.Combine(config.ModPath, "messages.json");
+    private StateFile<Dictionary<string, string>> State => new(Path.Combine(config.ModPath, "messages.json"));
 
     public void OnGameStart(MongoId sessionId)
     {
@@ -33,13 +28,14 @@ public sealed class TraderMessageService(ConfigService config, SeasonalCalendar 
         if (!settings.TraderMessage) return;
         try
         {
-            var (seasonal, past) = ActiveNow();
+            var seasonal = EventCatalog.Seasonal.Where(s => SeasonalState.Started(config, calendar).Active.Contains(s.Id)).ToList();
+            var past = schedule.ActiveNow(DateTimeOffset.Now.DateTime).Select(EventCatalog.Past).OfType<PastEventDef>().ToList();
             if (seasonal.Count == 0 && past.Count == 0) return;
-            var fingerprint = string.Join(",", seasonal.Concat(past));
+            var fingerprint = string.Join(",", seasonal.Select(s => s.Id).Concat(past.Select(e => e.Id)));
 
             lock (_lock)
             {
-                _sent ??= LoadState();
+                _sent ??= State.Read();
                 if (_sent.GetValueOrDefault(sessionId.ToString()) == fingerprint) return;
             }
 
@@ -49,7 +45,7 @@ public sealed class TraderMessageService(ConfigService config, SeasonalCalendar 
             lock (_lock)
             {
                 _sent![sessionId.ToString()] = fingerprint;
-                File.WriteAllText(StatePath, JsonSerializer.Serialize(_sent));
+                State.Write(_sent);
             }
         }
         catch (Exception ex)
@@ -58,60 +54,12 @@ public sealed class TraderMessageService(ConfigService config, SeasonalCalendar 
         }
     }
 
-    /// <summary>Seasonal events as applied at startup; past events as the server runs them now (restart-bound ones from startup, raid ones live).</summary>
-    public (List<string> Seasonal, List<string> Past) ActiveNow()
+    private static string Compose(List<SeasonalEventDef> seasonal, List<PastEventDef> past, bool pt)
     {
-        var now = DateTimeOffset.Now.DateTime;
-        var applied = config.Applied;
-        var saved = config.Saved;
-        var seasonal = EventCatalog.Seasonal
-            .Where(s => EventSchedule.SeasonalActive(applied, calendar, s.Id, config.StartedAt.Date))
-            .Select(s => s.Id).ToList();
-        var past = applied.Events.Where(id => EventCatalog.Past(id)?.NeedsRestart == true)
-            .Concat(EventSchedule.RaidEvents(saved, now).Where(id => EventCatalog.Past(id)?.NeedsRestart == false));
-        return (seasonal, ConfigService.NormalizeEvents(past));
-    }
-
-    private static string Compose(List<string> seasonal, List<string> past, bool pt)
-    {
-        var sb = new StringBuilder(pt ? "Escuta o que meu pessoal anda vendo por aí:\n" : "Listen to what my people are seeing out there:\n");
-        foreach (var id in seasonal)
-        {
-            var (en, ptText) = EventDetails.SeasonalRumor(id);
-            sb.Append("\n• ").Append(pt ? ptText : en);
-        }
-        foreach (var id in past)
-        {
-            var meta = EventDetails.Of(id);
-            var line = pt ? meta.RumorPt : meta.RumorEn;
-            if (!string.IsNullOrEmpty(line)) sb.Append("\n• ").Append(line);
-        }
+        var sb = new StringBuilder(pt ? "Escuta o que meu pessoal anda vendo por a\u00ed:\n" : "Listen to what my people are seeing out there:\n");
+        var lines = seasonal.Select(s => pt ? s.RumorPt : s.RumorEn).Concat(past.Select(e => pt ? e.RumorPt : e.RumorEn));
+        foreach (var line in lines.Where(l => !string.IsNullOrEmpty(l)))
+            sb.Append("\n\u2022 ").Append(line);
         return sb.ToString();
     }
-
-    private Dictionary<string, string> LoadState()
-    {
-        try
-        {
-            return File.Exists(StatePath)
-                ? JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(StatePath)) ?? new()
-                : new();
-        }
-        catch
-        {
-            return new();
-        }
-    }
-}
-
-public sealed class GameStartPatch : AbstractPatch
-{
-    private static TraderMessageService? _service;
-
-    public static void Init(TraderMessageService service) => _service = service;
-
-    protected override MethodBase? GetTargetMethod() => AccessTools.Method(typeof(GameController), nameof(GameController.GameStart));
-
-    [PatchPostfix]
-    public static void Postfix(MongoId sessionId) => _service?.OnGameStart(sessionId);
 }

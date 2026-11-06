@@ -1,5 +1,3 @@
-using System.Reflection;
-using System.Text.Json;
 using PPES.Events;
 using PPES.Factions;
 using PPES.Services;
@@ -48,55 +46,44 @@ public sealed class EventQuests(
     private static readonly string[] QuestTextKeys = ["name", "description", "successMessageText", "failMessageText", "startedMessageText",
         "acceptPlayerMessage", "declinePlayerMessage", "completePlayerMessage", "changeQuestMessageText", "note"];
 
-    private sealed record Swap(string Quest, string From, string To);
-
-    private sealed record Meta(Dictionary<string, string> Aliases, Dictionary<string, List<string>> Events, Dictionary<string, string> Requires, List<Swap>? Swaps);
-
-    /// <summary>Quests of a seasonal event: SPT shows them while that season is on, like its own Halloween quests.</summary>
-    private static readonly Dictionary<string, SeasonalEventType> SeasonalEvents = new(StringComparer.OrdinalIgnoreCase)
-    {
-        [EventCatalog.Halloween2026] = SeasonalEventType.Halloween,
-    };
-
     public Task OnLoadAsync(CancellationToken cancellationToken)
     {
         try
         {
-            var quests = json.Deserialize<Dictionary<MongoId, Quest>>(Resource("eventQuests.json"))!;
-            var meta = JsonSerializer.Deserialize<Meta>(Resource("eventQuestMeta.json"), new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+            var quests = json.Deserialize<Dictionary<MongoId, Quest>>(QuestCatalog.QuestsJson)!;
+            var meta = QuestCatalog.Meta;
             var skipped = new HashSet<string>();
+            var added = 0;
             questConfig.EventQuests ??= [];
-            var seasonOf = meta.Events.Where(e => SeasonalEvents.ContainsKey(e.Key))
-                .SelectMany(e => e.Value.Select(id => (id, SeasonalEvents[e.Key]))).ToDictionary(x => x.id, x => x.Item2);
-            var outbreak = config.Saved.Halloween.Outbreak2026;
+            // the Halloween 2026 quests belong to the outbreak part; without it they wait like a past event's
+            var seasonOf = EventCatalog.Seasonal
+                .Where(s => s.RecreatedQuests is not null && (s.Id != SeasonalIds.Halloween || config.Applied.Halloween.Outbreak2026))
+                .SelectMany(s => QuestCatalog.RecreatedFor(s.RecreatedQuests!).Select(id => (id, Season: Enum.Parse<SeasonalEventType>(s.Id, true))))
+                .ToDictionary(x => x.id, x => x.Season);
             foreach (var (id, quest) in quests)
             {
-                if (meta.Requires.TryGetValue(id.ToString(), out var need) && !Available(need))
+                if (meta.Requires.TryGetValue(id.ToString(), out var need) && !ModRequirements.Has(need))
                 {
                     skipped.Add(need);
                     continue;
                 }
                 templates.Quests[id] = quest;
-                // same entry as SPT's own Halloween quests; with the 2026 part off the end date below hides them instead
-                if (seasonOf.TryGetValue(id.ToString(), out var season) && outbreak)
+                added++;
+                // same entry as SPT's own seasonal quests
+                if (seasonOf.TryGetValue(id.ToString(), out var season))
                     questConfig.EventQuests[id] = new EventQuestData { Name = quest.QuestName ?? "", Season = season, StartTimestamp = 1341615600000, EndTimestamp = 0, Yearly = true };
                 else
                     // an end date in the past hides the quest until its event is picked
                     questConfig.EventQuests[id] = new EventQuestData { Name = quest.QuestName ?? "", Season = SeasonalEventType.None, StartTimestamp = 0, EndTimestamp = 1, Yearly = false };
             }
-            foreach (var (eventId, ids) in meta.Events)
-                EventCatalog.ExtraQuests[eventId] = ids.Where(i => templates.Quests.ContainsKey(i)).ToList();
 
             SwapRewards(meta.Swaps ?? []);
-            AddLocales(json.Deserialize<Dictionary<string, Dictionary<string, string>>>(Resource("eventLocales.json"))!, meta.Aliases);
+            AddLocales(QuestCatalog.Locales, meta.Aliases);
             UnlockRecipesWith(Walter);
             AddFactionLoot();
-            // optional mods that add bosses have loaded their bot records by now
-            ModRequirements.ScourgeLoaded |= botTable.Types.ContainsKey(ModRequirements.ScourgeBoss.ToLowerInvariant());
             if (inventoryConfig.RandomLootContainers.TryGetValue(OpenedCase, out var opened) && opened.RewardTplPool is { } pool)
                 pool[Contraband] = pool.Values.DefaultIfEmpty(1).Sum();
 
-            var added = EventCatalog.ExtraQuests.Values.Sum(v => v.Count);
             logger.Info($"{ConfigService.LogPrefix} Event quests ready ({added})" + (skipped.Count > 0 ? $", some skipped for missing {string.Join(", ", skipped)}" : ""));
         }
         catch (Exception ex)
@@ -104,16 +91,6 @@ public sealed class EventQuests(
             logger.Error($"{ConfigService.LogPrefix} Event quests could not be added: {ex.Message}");
         }
         return Task.CompletedTask;
-    }
-
-    private static bool Available(string need) =>
-        need == ModRequirements.BlackDivision ? FactionCatalog.BlackDivision : FactionCatalog.IsReady(need);
-
-    private static string Resource(string name)
-    {
-        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"PPES.Quests.{name}")!;
-        using var reader = new StreamReader(stream);
-        return reader.ReadToEnd();
     }
 
     private void AddLocales(Dictionary<string, Dictionary<string, string>> texts, Dictionary<string, string> aliases)
@@ -142,7 +119,7 @@ public sealed class EventQuests(
     /// Rewards SPT lacks are given as stand-ins; when a mod that adds the real item is installed (WTT-ContentBackport),
     /// the stand-in is replaced: a weapon by its preset, anything else by the item, with an ammo box refilled with its own rounds.
     /// </summary>
-    private void SwapRewards(List<Swap> swaps)
+    private void SwapRewards(List<QuestCatalog.Swap> swaps)
     {
         var items = templates.Items;
         foreach (var swap in swaps)

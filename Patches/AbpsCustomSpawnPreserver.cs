@@ -1,5 +1,6 @@
 using System.Reflection;
 using HarmonyLib;
+using PPES.Events;
 using PPES.Services;
 using SPTarkov.Common.Models.Logging;
 using SPTarkov.DI.Annotations;
@@ -24,12 +25,6 @@ public sealed class AbpsCustomSpawnPreserver(
     ICloner cloner,
     ISptLogger<AbpsCustomSpawnPreserver> logger) : IOnLoad
 {
-    private static readonly string[] Maps =
-    [
-        "bigmap", "factory4_day", "factory4_night", "interchange", "laboratory", "lighthouse",
-        "rezervbase", "sandbox", "sandbox_high", "shoreline", "tarkovstreets", "woods", "labyrinth",
-    ];
-
     private static readonly HashSet<string> VanillaRoles =
         new(Enum.GetNames<WildSpawnType>(), StringComparer.OrdinalIgnoreCase);
     private static readonly HashSet<string> MoreBotsRoles = new(StringComparer.OrdinalIgnoreCase);
@@ -104,7 +99,7 @@ public sealed class AbpsCustomSpawnPreserver(
     private static Dictionary<string, List<BossLocationSpawn>> CaptureAll()
     {
         var result = new Dictionary<string, List<BossLocationSpawn>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var map in Maps)
+        foreach (var map in GameMaps.AllIds)
         {
             var spawns = Capture(map);
             if (spawns.Count > 0) result[map] = spawns;

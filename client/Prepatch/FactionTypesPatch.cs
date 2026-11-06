@@ -8,29 +8,20 @@ namespace PPES.Prepatch;
 /// <summary>Adds PPES's five faction roles to the client enum before the game assembly loads.</summary>
 public static class FactionTypesPatch
 {
-    private static readonly (int Id, string Name)[] Types =
-    {
-        (731001, "ppesCleanupCrew"),
-        (731002, "ppesSmuggler"),
-        (731003, "ppesPillager"),
-        (731004, "ppesGus"),
-        (731005, "ppesBasmach"),
-    };
-
     public static IEnumerable<string> TargetDLLs { get; } = new[] { "Assembly-CSharp.dll" };
 
     public static void Patch(ref AssemblyDefinition assembly)
     {
         var type = assembly.MainModule.GetType("EFT.WildSpawnType")
             ?? throw new InvalidOperationException("EFT.WildSpawnType was not found");
-        foreach (var custom in Types)
+        foreach (var custom in PpesIds.Factions)
         {
-            if (HasNameOrValue(type, custom.Name, custom.Id))
+            if (HasNameOrValue(type, custom.Role, custom.Id))
             {
-                Logger.CreateLogSource("PPES Prepatch").LogWarning($"Skipped duplicate bot role {custom.Name} ({custom.Id})");
+                Logger.CreateLogSource("PPES Prepatch").LogWarning($"Skipped duplicate bot role {custom.Role} ({custom.Id})");
                 continue;
             }
-            type.Fields.Add(new FieldDefinition(custom.Name,
+            type.Fields.Add(new FieldDefinition(custom.Role,
                 FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.Literal | FieldAttributes.HasDefault, type)
             {
                 Constant = custom.Id,

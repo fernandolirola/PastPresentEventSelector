@@ -1,7 +1,8 @@
+using System.Runtime.ExceptionServices;
 using PPES.Events;
-using PPES.Factions;
 using PPES.Models;
 using SPTarkov.DI.Annotations;
+using SPTarkov.Server.Core.Models.Eft.Common;
 using SPTarkov.Server.Core.Models.Spt.Config;
 using SPTarkov.Server.Core.Models.Spt.Tables;
 using SPTarkov.Server.Core.Utils.Cloners;
@@ -16,123 +17,45 @@ public sealed record PreviewSpawn(string Role, string NameEn, string NamePt, dou
 public sealed record RaidPreview(string MapId, IReadOnlyList<PreviewSpawn> Spawns, double AirdropChance, int AirdropMax, bool Mortar, bool? NeedsKeycard, double? ZombieInfection,
     IReadOnlyList<PreviewSpawn> Removed);
 
-public sealed record RoleOption(string Role, string NameEn, string NamePt);
-
 /// <summary>
-/// Runs the raid-time part of a selection on a copy of the map, the same way a raid does, so the page can show
-/// what the next raid would look like. Works on unsaved picks too.
+/// Runs the raid pipeline for a selection on a copy of the map, so the page can show what the next raid would
+/// look like. Works on unsaved picks too.
 /// </summary>
 [Injectable(InjectionType.Singleton)]
-public sealed class PreviewService(LocationTable locations, ICloner cloner, SeasonalBossRegistry seasonalBosses, SeasonalCalendar seasonalCalendar, SeasonalEventConfig seasonalConfig, ConfigService config)
+public sealed class PreviewService(LocationTable locations, ICloner cloner, SeasonalCalendar calendar, SeasonalEventConfig seasonalConfig,
+    ConfigService config, EventSchedule schedule)
 {
-    // roles the editor offers to add; trigger-only and event-scripted roles (ritual, Santa's helpers) are left out
-    private static readonly string[] Addable =
-    [
-        "bossBully", "bossKojaniy", "bossSanitar", "bossGluhar", "bossKilla", "bossTagilla", "bossKolontay", "bossBoar", "bossKnight", "bossPartisan",
-        "bossZryachiy", "sectantPriest", "sectantOni", "sectantPredvestnik", "sectantPrizrak", "arenaFighterEvent", "exUsec", "pmcBot",
-        "skier", "peacemaker", "gifter", "infectedTagilla", "infectedAssault", "infectedPmc", "infectedCivil", "infectedLaborant",
-        "ppesCleanupCrew", "ppesSmuggler", "ppesPillager", "ppesGus", "ppesBasmach", "bossWedge", "blackDivAssault",
-    ];
-
-    private static readonly string[] MortarMaps = ["bigmap", "woods", "shoreline", "rezervbase"];
     private static readonly Dictionary<string, string[]> ZoneFallbacks = new(StringComparer.OrdinalIgnoreCase)
     {
         ["sandbox"] = ["ZoneSandbox"],
         ["sandbox_high"] = ["ZoneSandbox"],
     };
-    private static readonly HashSet<string> Ignored = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "assault", "marksman", "pmcUSEC", "pmcBEAR", "cursedAssault", "assaultGroup", "crazyAssaultEvent",
-    };
-
-    private static readonly Dictionary<string, (string En, string Pt)> RoleNames = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["bossBully"] = ("Reshala", "Reshala"),
-        ["bossKojaniy"] = ("Shturman", "Shturman"),
-        ["bossSanitar"] = ("Sanitar", "Sanitar"),
-        ["bossGluhar"] = ("Glukhar", "Glukhar"),
-        ["bossKilla"] = ("Killa", "Killa"),
-        ["bossTagilla"] = ("Tagilla", "Tagilla"),
-        ["bossKolontay"] = ("Kollontay", "Kollontay"),
-        ["bossBoar"] = ("Kaban", "Kaban"),
-        ["bossBoarSniper"] = ("Kaban's snipers", "Snipers do Kaban"),
-        ["bossKnight"] = ("The Goons", "Os Goons"),
-        ["bossPartisan"] = ("Partisan", "Partisan"),
-        ["bossZryachiy"] = ("Zryachiy", "Zryachiy"),
-        ["sectantPriest"] = ("Cultists", "Cultistas"),
-        ["arenaFighterEvent"] = ("Bloodhounds", "Bloodhounds"),
-        ["exUsec"] = ("Rogues", "Rogues"),
-        ["pmcBot"] = ("Raiders", "Raiders"),
-        ["skier"] = ("Skier's troops", "Tropas do Skier"),
-        ["peacemaker"] = ("Peacekeeper's troops", "Tropas do Peacekeeper"),
-        ["gifter"] = ("Santa", "Papai Noel"),
-        ["peacefullZryachiyEvent"] = ("Zryachiy (ritual)", "Zryachiy (ritual)"),
-        ["sectactPriestEvent"] = ("Ritual priests", "Sacerdotes do ritual"),
-        ["ravangeZryachiyEvent"] = ("Vengeful Zryachiy", "Zryachiy Vingativo"),
-        ["sectantOni"] = ("Oni", "Oni"),
-        ["sectantPredvestnik"] = ("Harbinger", "Harbinger"),
-        ["sectantPrizrak"] = ("Ghost", "Ghost"),
-        ["infectedTagilla"] = ("Infected Tagilla", "Tagilla infectado"),
-        ["infectedAssault"] = ("Infected", "Infectados"),
-        ["infectedPmc"] = ("Infected PMCs", "PMCs infectados"),
-        ["infectedCivil"] = ("Infected civilians", "Civis infectados"),
-        ["infectedLaborant"] = ("Infected lab staff", "Laboratoristas infectados"),
-        ["ppesCleanupCrew"] = ("Cleanup Crew", "Cleanup Crew"),
-        ["ppesSmuggler"] = ("Smugglers", "Contrabandistas"),
-        ["ppesPillager"] = ("Pillagers", "Saqueadores"),
-        ["ppesGus"] = ("Gus", "Gus"),
-        ["ppesBasmach"] = ("Basmach", "Basmach"),
-        ["bossWedge"] = ("Wedge", "Wedge"),
-        ["blackDivAssault"] = ("Black Division", "Black Division"),
-    };
-
-    /// <summary>Roles the editor can add: bosses and groups, and the factions whose server side loaded.</summary>
-    public IReadOnlyList<RoleOption> AddableRoles() =>
-        Addable
-            .Where(r => FactionCatalog.ByRole(r) is null || FactionCatalog.IsReady(r))
-            .Where(r => r is not ("bossWedge" or "blackDivAssault") || FactionCatalog.BlackDivision)
-            .Select(r => RoleNames.TryGetValue(r, out var n) ? new RoleOption(r, n.En, n.Pt) : new RoleOption(r, r, r))
-            .ToList();
 
     /// <summary>Zone names of a map: its open zones plus every zone its spawns use.</summary>
     public IReadOnlyList<string> ZonesOf(string mapId)
     {
         var location = locations.GetLocation(mapId)?.Base;
         if (location is null) return [];
-        return (location.OpenZones ?? "").Split(',')
-            .Concat((location.BossLocationSpawn ?? []).SelectMany(b => (b.BossZone ?? "").Split(',')))
+        return ZoneList.Split(location.OpenZones)
+            .Concat((location.BossLocationSpawn ?? []).SelectMany(b => ZoneList.Split(b.BossZone)))
             .Concat(ZoneFallbacks.GetValueOrDefault(mapId) ?? [])
-            .Select(z => z.Trim()).Where(z => z.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
-    public RaidPreview Preview(string mapId, IReadOnlyCollection<string> events, IReadOnlyList<SpawnEdit>? edits = null, PpesConfig? selection = null)
+    public RaidPreview Preview(string mapId, PpesConfig draft)
     {
         var source = locations.GetLocation(mapId)?.Base ?? throw new InvalidOperationException($"Unknown map {mapId}");
         var before = Summarize(source.BossLocationSpawn ?? []);
+        var now = DateTimeOffset.Now.DateTime;
+        var seasonal = SeasonalState.For(draft, calendar, now.Date);
+        var events = schedule.RaidEvents(draft, now);
+        var edits = draft.SpawnsOf(mapId);
 
         var copy = cloner.Clone(source)!;
         var ctx = new RaidContext(copy, mapId, locations, cloner, preview: true);
-        // seasonal bosses as the server runs them now; seasonal changes only apply after a restart
-        SeasonalRaidContent.Apply(ctx, seasonalBosses, seasonalConfig, cloner);
-        var halloween = selection?.Halloween ?? config.Saved.Halloween;
-        var halloweenOn = selection is null
-            ? seasonalBosses.ZombiesActive
-            : EventSchedule.SeasonalActive(selection, seasonalCalendar, "halloween", DateTimeOffset.Now.DateTime);
-        var zombiesOn = halloweenOn && halloween.ZombiesOn;
-        if (selection is not null)
-        {
-            if (!zombiesOn)
-                copy.BossLocationSpawn?.RemoveAll(b => b.BossName?.StartsWith("infected", StringComparison.OrdinalIgnoreCase) == true);
-            else
-                SeasonalRaidContent.AddEventBossGroup(ctx, "halloweenzombies", seasonalConfig, cloner);
-        }
-        if (zombiesOn) SeasonalRaidContent.AddZombieWaves(ctx, PreviewRegistry(zombiesOn), halloween, cloner);
-        foreach (var id in events)
-            EventCatalog.Past(id)?.OnRaid?.Invoke(ctx);
-        var withEvents = Summarize(copy.BossLocationSpawn ?? []);
-        edits ??= [];
-        SpawnEdits.Apply(ctx, edits);
+        var withEvents = before;
+        RaidPipeline.Run(ctx, new RaidPlan(seasonal, SeasonalState.Started(config, calendar), draft.Halloween, events, edits), seasonalConfig,
+            (_, ex) => ExceptionDispatchInfo.Throw(ex), () => withEvents = Summarize(copy.BossLocationSpawn ?? []));
 
         var after = Summarize(copy.BossLocationSpawn ?? []);
         var custom = edits.Where(e => !e.Remove).Select(e => e.Role).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -147,66 +70,41 @@ public sealed class PreviewService(LocationTable locations, ICloner cloner, Seas
             .OrderByDescending(s => s.Changed).ThenByDescending(s => s.Chance).ThenBy(s => s.NameEn)
             .ToList();
 
-        var airdrops = copy.AirdropParameters ?? [];
-        bool? keycard = mapId is "laboratory" or "labyrinth"
+        var defs = events.Select(EventCatalog.Past).OfType<PastEventDef>().ToList();
+        bool? keycard = GameMaps.Get(mapId)?.Keycard == true
             ? (copy.AccessKeys?.Any() == true || copy.AccessKeysPvE?.Any() == true)
-                && !events.Contains("softcore", StringComparer.OrdinalIgnoreCase)
-                && !(mapId == "laboratory" && (events.Contains("freeLabs", StringComparer.OrdinalIgnoreCase) || (halloweenOn && halloween.FreeLab)))
+                && !defs.Any(e => e.FreeAccess.Contains(mapId)) && !seasonal.FreeEntryMaps.Contains(mapId)
             : null;
+        var airdrops = copy.AirdropParameters ?? [];
 
         return new RaidPreview(
             mapId,
             spawns,
             airdrops.Count == 0 ? 0 : airdrops.Max(a => a.PlaneAirdropChance ?? 0),
             airdrops.Count == 0 ? 0 : airdrops.Max(a => a.PlaneAirdropMax ?? 0),
-            events.Contains("mortarStrike", StringComparer.OrdinalIgnoreCase) && MortarMaps.Contains(mapId),
+            defs.Any(e => e.Mortar.Contains(mapId)),
             keycard,
-            ZombieInfection(mapId, zombiesOn, halloween.Outbreak2026),
+            seasonal.Infection(mapId),
             removed);
     }
 
-    private static Dictionary<string, PreviewSpawn> Summarize(IEnumerable<SPTarkov.Server.Core.Models.Eft.Common.BossLocationSpawn> spawns)
+    private static Dictionary<string, PreviewSpawn> Summarize(IEnumerable<BossLocationSpawn> spawns)
     {
         var result = new Dictionary<string, PreviewSpawn>(StringComparer.OrdinalIgnoreCase);
-        foreach (var group in spawns.Where(s => s.BossName is { } n && !Ignored.Contains(n)).GroupBy(s => s.BossName!, StringComparer.OrdinalIgnoreCase))
+        foreach (var group in spawns.Where(s => s.BossName is { } n && !BotRoles.Ignored.Contains(n)).GroupBy(s => s.BossName!, StringComparer.OrdinalIgnoreCase))
         {
-            var (en, pt) = RoleNames.GetValueOrDefault(group.Key, (group.Key, group.Key));
-            var zones = string.Join(", ", group.SelectMany(s => (s.BossZone ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                .Select(ZoneLabel).Distinct().Take(6));
+            var (en, pt) = BotRoles.NameOf(group.Key);
+            var allZones = group.SelectMany(s => ZoneList.Split(s.BossZone)).Distinct().ToList();
             // SPT stores escort size as a weighted list ("1,1,2,2,3"); the page only needs its range
             var sizes = group.SelectMany(s => (s.BossEscortAmount ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries))
                 .Select(v => int.TryParse(v.Trim(), out var n) ? n : 0).DefaultIfEmpty(0).ToList();
-            var raw = string.Join(",", group.SelectMany(s => (s.BossZone ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)).Distinct());
             var chance = group.Max(s => s.BossChance ?? 0);
-            if (group.Key.StartsWith("infected", StringComparison.OrdinalIgnoreCase) && chance > 100) chance /= 100;
-            result[group.Key] = new PreviewSpawn(group.Key, en, pt, chance, group.Count(), zones, sizes.Min(), sizes.Max(), false, raw);
+            // SPT's zombie groups store chance times 100
+            if (SeasonalRaidContent.IsInfected(group.Key) && chance > 100) chance /= 100;
+            result[group.Key] = new PreviewSpawn(group.Key, en, pt, chance, group.Count(), string.Join(", ", allZones.Select(ZoneLabel).Distinct().Take(6)),
+                sizes.Min(), sizes.Max(), false, string.Join(",", allZones));
         }
         return result;
-    }
-
-    private SeasonalBossRegistry PreviewRegistry(bool zombiesOn)
-    {
-        var registry = new SeasonalBossRegistry();
-        registry.Set([], false, false, false, [], false, zombiesOn);
-        return registry;
-    }
-
-    private double? ZombieInfection(string mapId, bool zombiesOn, bool outbreak)
-    {
-        if (!zombiesOn) return null;
-        var dataKey = mapId switch
-        {
-            "factory4_day" or "factory4_night" => "factory4",
-            "sandbox_high" => "sandbox",
-            _ => mapId,
-        };
-        var amounts = seasonalConfig.Events?
-            .Where(e => e.Type == SPTarkov.Server.Core.Models.Enums.SeasonalEventType.Halloween)
-            .Select(e => e.Settings?.ZombieSettings?.MapInfectionAmount)
-            .FirstOrDefault(x => x is not null);
-        if (amounts is null) return null;
-        var match = amounts.FirstOrDefault(x => string.Equals(x.Key, dataKey, StringComparison.OrdinalIgnoreCase));
-        return match.Key is null ? null : outbreak && match.Value <= 0 ? 40 : match.Value;
     }
 
     public static string ZoneLabel(string zone)

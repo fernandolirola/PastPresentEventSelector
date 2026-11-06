@@ -1,4 +1,6 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
+using PPES.Events;
 
 namespace PPES.Models;
 
@@ -38,12 +40,14 @@ public static class RotationMode
 
 public sealed class RotationSettings
 {
+    [Applies(Applies.NextRaid)]
     public string Mode { get; set; } = RotationMode.Off;
+    /// <summary>Events per draw; a draw takes fewer when the pool is smaller.</summary>
+    [Applies(Applies.NextRaid), Limits(1, 100, Decimals = 0)]
     public int Count { get; set; } = 1;
     /// <summary>Raids per draw in the "raids" mode.</summary>
+    [Applies(Applies.NextRaid), Limits(1, 50, Decimals = 0)]
     public int Raids { get; set; } = 3;
-
-    public RotationSettings Clone() => new() { Mode = Mode, Count = Count, Raids = Raids };
 }
 
 public static class SeasonalRotationMode
@@ -66,11 +70,9 @@ public static class SeasonalRotationMode
 public sealed class SeasonalRotationSettings
 {
     public string Mode { get; set; } = SeasonalRotationMode.Off;
-    /// <summary>Chance (0 to 90) that a period has no seasonal event at all.</summary>
+    /// <summary>Chance that a period has no seasonal event at all.</summary>
+    [Limits(0, 90, Decimals = 0)]
     public int BreakChance { get; set; } = 25;
-
-    public SeasonalRotationSettings Clone() => new() { Mode = Mode, BreakChance = BreakChance };
-    public bool SameAs(SeasonalRotationSettings other) => Mode == other.Mode && BreakChance == other.BreakChance;
 }
 
 /// <summary>
@@ -86,8 +88,8 @@ public sealed class SpawnEdit
     /// <summary>Escort size as "2" or "1-3".</summary>
     public string? Escort { get; set; }
 
-    public SpawnEdit Clone() => new() { Role = Role, Remove = Remove, Chance = Chance, Zones = Zones, Escort = Escort };
-    public bool SameAs(SpawnEdit o) => Role == o.Role && Remove == o.Remove && Chance == o.Chance && Zones == o.Zones && Escort == o.Escort;
+    [JsonIgnore]
+    public bool ChangesNothing => !Remove && Chance is null && Zones is null && Escort is null;
 }
 
 public sealed class PresetData
@@ -104,12 +106,18 @@ public sealed class HalloweenParts
     /// <summary>Halloween 2024: infected and map infection. SPT ships it off.</summary>
     public bool Zombies { get; set; }
     /// <summary>Keep the game's Halloween hiding layer instead of normal patrol and combat AI.</summary>
+    [Applies(Applies.Live)]
     public bool BotsHideFromZombies { get; set; }
-    /// <summary>Adds configurable infected reinforcement waves after the stock finite schedule.</summary>
+    /// <summary>Adds infected reinforcement waves after the stock finite schedule.</summary>
+    [Applies(Applies.NextRaid)]
     public bool ZombieWaves { get; set; }
+    [Applies(Applies.NextRaid), Limits(1, 20, Decimals = 0)]
     public int ZombieWaveSizeMin { get; set; } = 3;
+    [Applies(Applies.NextRaid), Limits(1, 20, Decimals = 0, AtLeast = nameof(ZombieWaveSizeMin))]
     public int ZombieWaveSizeMax { get; set; } = 3;
+    [Applies(Applies.NextRaid), Limits(1, 30, Decimals = 0)]
     public int ZombieWaveIntervalMin { get; set; } = 5;
+    [Applies(Applies.NextRaid), Limits(1, 30, Decimals = 0, AtLeast = nameof(ZombieWaveIntervalMin))]
     public int ZombieWaveIntervalMax { get; set; } = 5;
     /// <summary>Halloween 2025: Oni, Harbinger and Ghost cultists.</summary>
     public bool Cultists { get; set; } = true;
@@ -121,25 +129,6 @@ public sealed class HalloweenParts
     /// <summary>Pumpkins with sweets in containers, signal pistols and acid green flares on Scavs.</summary>
     public bool Loot { get; set; } = true;
 
-    public HalloweenParts Clone() => new()
-    {
-        Ritual = Ritual, Zombies = Zombies, BotsHideFromZombies = BotsHideFromZombies, ZombieWaves = ZombieWaves,
-        ZombieWaveSizeMin = ZombieWaveSizeMin, ZombieWaveSizeMax = ZombieWaveSizeMax,
-        ZombieWaveIntervalMin = ZombieWaveIntervalMin, ZombieWaveIntervalMax = ZombieWaveIntervalMax,
-        Cultists = Cultists, LabInfectedOnly = LabInfectedOnly, FreeLab = FreeLab, Outbreak2026 = Outbreak2026, Loot = Loot,
-    };
-
-    public bool SameAs(HalloweenParts other) =>
-        BotsHideFromZombies == other.BotsHideFromZombies && SameServerSettingsAs(other);
-
-    public bool SameServerSettingsAs(HalloweenParts other) =>
-        Ritual == other.Ritual && Zombies == other.Zombies && ZombieWaves == other.ZombieWaves
-        && ZombieWaveSizeMin == other.ZombieWaveSizeMin && ZombieWaveSizeMax == other.ZombieWaveSizeMax
-        && ZombieWaveIntervalMin == other.ZombieWaveIntervalMin && ZombieWaveIntervalMax == other.ZombieWaveIntervalMax
-        && Cultists == other.Cultists && LabInfectedOnly == other.LabInfectedOnly && FreeLab == other.FreeLab
-        && Outbreak2026 == other.Outbreak2026 && Loot == other.Loot;
-
-    /// <summary>The 2026 outbreak needs the zombies, so it switches them on.</summary>
     [JsonIgnore]
     public bool ZombiesOn => Zombies || Outbreak2026;
 }
@@ -150,11 +139,6 @@ public sealed class AprilFoolsParts
     public bool Winter { get; set; } = true;
     public bool Santa { get; set; } = true;
     public bool RitualAndCult { get; set; } = true;
-
-    public AprilFoolsParts Clone() => new() { Winter = Winter, Santa = Santa, RitualAndCult = RitualAndCult };
-
-    public bool SameAs(AprilFoolsParts other) =>
-        Winter == other.Winter && Santa == other.Santa && RitualAndCult == other.RitualAndCult;
 }
 
 /// <summary>Pieces of SPT's Christmas and New Year that can be switched on their own. All on in SPT's stock config.</summary>
@@ -165,39 +149,40 @@ public sealed class ChristmasParts
     /// <summary>Christmas 2024: the tree event and the dancing bots around it.</summary>
     public bool Khorovod { get; set; } = true;
     public bool WinterClothes { get; set; } = true;
-
-    public ChristmasParts Clone() => new() { Santa = Santa, Hideout = Hideout, Khorovod = Khorovod, WinterClothes = WinterClothes };
-
-    public bool SameAs(ChristmasParts other) =>
-        Santa == other.Santa && Hideout == other.Hideout && Khorovod == other.Khorovod && WinterClothes == other.WinterClothes;
 }
 
-/// <summary>
-/// Event mechanics with absolute values; the defaults are what the game does. The jams are applied by the client plugin
-/// in every raid, the rest are written into the server's globals at startup.
-/// </summary>
+/// <summary>Event mechanics with absolute values; the defaults are what the game does.</summary>
 public sealed class MechanicsSettings
 {
     /// <summary>Seconds Kollontay's hits jam the weapon (Streets boss, any raid); 0 turns it off.</summary>
+    [Applies(Applies.Live), Limits(0, 600, Decimals = 1)]
     public double KollontayJam { get; set; } = 5;
-    /// <summary>Seconds Vengeful Zryachiy's jam lasts, 0 turns it off and -1 keeps the game's, which never ends. He only appears with the Halloween ritual.</summary>
+    /// <summary>Seconds Vengeful Zryachiy's jam lasts, 0 turns it off and -1 keeps the game's, which never ends.</summary>
+    [Applies(Applies.Live), Limits(0, 3600, Decimals = 1, Off = -1)]
     public double VengefulJam { get; set; } = -1;
     /// <summary>Halloween 2023 ritual: how many times longer extracts take.</summary>
+    [Limits(0.1, 20)]
     public double RitualExitTime { get; set; } = 3;
     /// <summary>Halloween 2023 ritual: how many times faster stamina drains.</summary>
+    [Limits(0.1, 20)]
     public double RitualStamina { get; set; } = 3;
     /// <summary>Zombie infection: how fast hydration drains, written to the game as a negative value.</summary>
+    [Limits(0, 100)]
     public double ToxinDehydration { get; set; } = 0.84;
     /// <summary>Zombie infection: hearing lost, in percent.</summary>
+    [Limits(0, 100, Decimals = 0)]
     public double ToxinHearing { get; set; } = 20;
-
-    public MechanicsSettings Clone() => (MechanicsSettings)MemberwiseClone();
-    public bool SameAs(MechanicsSettings o) => KollontayJam == o.KollontayJam && VengefulJam == o.VengefulJam && RitualExitTime == o.RitualExitTime
-        && RitualStamina == o.RitualStamina && ToxinDehydration == o.ToxinDehydration && ToxinHearing == o.ToxinHearing;
 }
 
 public sealed class PpesConfig
 {
+    internal static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true, PropertyNameCaseInsensitive = true,
+        ReadCommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
     public string Language { get; set; } = "en";
     public string View { get; set; } = "grid";
     public bool GroupByYear { get; set; } = true;
@@ -219,38 +204,36 @@ public sealed class PpesConfig
 
     public List<SpawnEdit> SpawnsOf(string mapId) => Spawns.GetValueOrDefault(mapId) ?? [];
 
-    /// <summary>Editable selection, excluding immediately saved display preferences and named presets.</summary>
-    public bool SameSelectionAs(PpesConfig other) =>
-        Events.SequenceEqual(other.Events, StringComparer.OrdinalIgnoreCase)
-        && Seasonal.Keys.Concat(other.Seasonal.Keys).All(id => ModeOf(id) == other.ModeOf(id))
-        && Rotation.Mode == other.Rotation.Mode && Rotation.Count == other.Rotation.Count && Rotation.Raids == other.Rotation.Raids
-        && SeasonalRotation.SameAs(other.SeasonalRotation) && SameSpawns(other)
-        && TraderMessage == other.TraderMessage && Halloween.SameAs(other.Halloween)
-        && Christmas.SameAs(other.Christmas) && AprilFools.SameAs(other.AprilFools) && Mechanics.SameAs(other.Mechanics);
-
-    public bool SameSpawns(PpesConfig other) =>
-        Spawns.Keys.Concat(other.Spawns.Keys).Distinct(StringComparer.OrdinalIgnoreCase)
-            .All(map => SpawnsOf(map) is var a && other.SpawnsOf(map) is var b && a.Count == b.Count && a.Zip(b).All(x => x.First.SameAs(x.Second)));
-
-    public PpesConfig Clone() => new()
+    /// <summary>Page preferences are saved as soon as they change and are not part of the editable selection.</summary>
+    public void CopyPreferencesFrom(PpesConfig other)
     {
-        Language = Language,
-        View = View,
-        GroupByYear = GroupByYear,
-        TraderMessage = TraderMessage,
-        Seasonal = new Dictionary<string, string>(Seasonal, StringComparer.OrdinalIgnoreCase),
-        Halloween = Halloween.Clone(),
-        Christmas = Christmas.Clone(),
-        AprilFools = AprilFools.Clone(),
-        Mechanics = Mechanics.Clone(),
-        Events = [.. Events],
-        Rotation = Rotation.Clone(),
-        SeasonalRotation = SeasonalRotation.Clone(),
-        Spawns = Spawns.ToDictionary(p => p.Key, p => p.Value.Select(e => e.Clone()).ToList(), StringComparer.OrdinalIgnoreCase),
-        Presets = Presets.ToDictionary(p => p.Key, p => new PresetData
-        {
-            Seasonal = new Dictionary<string, string>(p.Value.Seasonal, StringComparer.OrdinalIgnoreCase),
-            Events = [.. p.Value.Events],
-        }),
-    };
+        Language = other.Language;
+        View = other.View;
+        GroupByYear = other.GroupByYear;
+        Presets = other.Clone().Presets;
+    }
+
+    /// <summary>The editable selection as text: preferences left out, seasonal modes and spawn edits in a fixed order.</summary>
+    public string SelectionKey()
+    {
+        var selection = Clone();
+        selection.CopyPreferencesFrom(new PpesConfig());
+        selection.Seasonal = EventCatalog.Seasonal.ToDictionary(s => s.Id, s => ModeOf(s.Id));
+        selection.Spawns = Spawns.Where(p => p.Value.Count > 0)
+            .OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(p => p.Key.ToLowerInvariant(), p => p.Value);
+        return JsonSerializer.Serialize(selection, JsonOptions);
+    }
+
+    public bool SameSelectionAs(PpesConfig other) => SelectionKey() == other.SelectionKey();
+
+    public PpesConfig Clone()
+    {
+        var copy = JsonSerializer.Deserialize<PpesConfig>(JsonSerializer.Serialize(this, JsonOptions), JsonOptions)!;
+        copy.Seasonal = new Dictionary<string, string>(copy.Seasonal, StringComparer.OrdinalIgnoreCase);
+        copy.Spawns = new Dictionary<string, List<SpawnEdit>>(copy.Spawns, StringComparer.OrdinalIgnoreCase);
+        foreach (var preset in copy.Presets.Values)
+            preset.Seasonal = new Dictionary<string, string>(preset.Seasonal, StringComparer.OrdinalIgnoreCase);
+        return copy;
+    }
 }

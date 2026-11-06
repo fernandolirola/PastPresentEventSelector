@@ -1,0 +1,42 @@
+@inherits PpesComponent
+@inject QuestAvailability QuestCheck
+
+@if (Quests.Count > 0)
+{
+    <details class="ppes-quests">
+        <summary aria-label="@T("Quests deste evento", "Quests of this event")">
+        <MudIcon Icon="@Icons.Material.Outlined.Info" Class="ppes-quests-icon" />
+        @(Quests.Count == 1 ? "1 quest" : $"{Quests.Count} quests")
+        </summary>
+        <span class="ppes-quests-pop">
+            <span class="ppes-quests-box">
+                <span class="ppes-quests-title">@T("Quests do evento (abre a wiki)", "Event quests (opens the wiki)")</span>
+                @foreach (var q in Quests)
+                {
+                    var inGame = QuestCheck.Exists(q.Name);
+                    <a href="@q.Url" target="_blank" rel="noopener noreferrer" class="@(inGame ? "" : "ppes-quest-missing")"
+                       title="@(q.Gated ? T("O PPES libera esta quest; as próximas da cadeia vêm depois dela", "PPES unlocks this quest; the rest of the chain follows it") : null)">
+                        @if (q.Gated)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.LockOpen" Class="ppes-quest-gated" />
+                        }
+                        <span>@q.Name</span>
+                        @if (!inGame)
+                        {
+                            <span class="ppes-quest-note">@T("fora do seu jogo", "not in your game")</span>
+                        }
+                        <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Class="ppes-wiki-icon" />
+                    </a>
+                }
+                @if (Quests.Any(q => q.Gated) && Quests.Any(q => !q.Gated))
+                {
+                    <span class="ppes-quests-legend"><MudIcon Icon="@Icons.Material.Filled.LockOpen" Class="ppes-quest-gated" /> @T("liberada pelo PPES; as outras seguem a cadeia normal", "unlocked by PPES; the others follow the normal chain")</span>
+                }
+            </span>
+        </span>
+    </details>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<QuestLink> Quests { get; set; } = [];
+}

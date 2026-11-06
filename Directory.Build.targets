@@ -1,0 +1,13 @@
+<Project>
+  <!-- BepInPlugin needs the version as a compile-time constant -->
+  <Target Name="PpesVersionConstant" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <PpesVersionFile>$(IntermediateOutputPath)PpesVersion.g.cs</PpesVersionFile>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(PpesVersionFile)" Lines="namespace PPES { internal static class PpesVersion { public const string Value = &quot;$(Version)&quot;%3B } }" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+      <Compile Include="$(PpesVersionFile)" />
+      <FileWrites Include="$(PpesVersionFile)" />
+    </ItemGroup>
+  </Target>
+</Project>

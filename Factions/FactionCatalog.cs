@@ -1,52 +1,49 @@
 namespace PPES.Factions;
 
 /// <param name="Sources">Bot types to copy gear, health and AI from, first one found wins.</param>
-public sealed record FactionDef(
-    int Id,
-    string Role,
-    string ScavRole,
+internal sealed record FactionDef(
+    FactionRole Key,
     string Faction,
     string[] Sources,
     string NameEn,
     string NamePt,
-    string DescEn);
-
-/// <summary>
-/// PPES's built-in factions. Ids, roles and scav roles must match client/Prepatch/FactionTypesPatch.cs.
-/// </summary>
-public static class FactionCatalog
+    string DescEn)
 {
-    public const string CleanupCrew = "ppesCleanupCrew";
-    public const string Smuggler = "ppesSmuggler";
-    public const string Pillager = "ppesPillager";
-    public const string Gus = "ppesGus";
-    public const string Basmach = "ppesBasmach";
+    public int Id => Key.Id;
+    public string Role => Key.Role;
+    public string ScavRole => Key.ScavRole;
+}
 
-    public static readonly IReadOnlyList<FactionDef> All =
-    [
-        new(731001, CleanupCrew, "PpesCleanupCrew", "ppes_cleanupcrew", ["arenafighterevent", "pmcbot"],
-            "Cleanup Crew", "Cleanup Crew", "Ref's arena fighters sent to clean up a location."),
-        new(731002, Smuggler, "PpesSmuggler", "ppes_smugglers", ["exusec", "pmcbot"],
-            "Smugglers", "Contrabandistas", "Armed smugglers moving goods across the region."),
-        new(731003, Pillager, "PpesPillager", "ppes_pillagers", ["pmcbot"],
-            "Pillagers", "Saqueadores", "Well-armed raiders looting the locations."),
+/// <summary>PPES's built-in factions; their ids and roles come from shared/PpesIds.cs, which the client compiles too.</summary>
+internal static class FactionCatalog
+{
+    public const string CleanupCrew = PpesIds.CleanupCrew;
+    public const string Smuggler = PpesIds.Smuggler;
+    public const string Pillager = PpesIds.Pillager;
+    public const string Gus = PpesIds.Gus;
+    public const string Basmach = PpesIds.Basmach;
+
+    private static readonly Dictionary<string, (string Faction, string[] Sources, string NameEn, string NamePt, string DescEn)> Details = new()
+    {
+        [CleanupCrew] = ("ppes_cleanupcrew", ["arenafighterevent", "pmcbot"], "Cleanup Crew", "Cleanup Crew", "Ref's arena fighters sent to clean up a location."),
+        [Smuggler] = ("ppes_smugglers", ["exusec", "pmcbot"], "Smugglers", "Contrabandistas", "Armed smugglers moving goods across the region."),
+        [Pillager] = ("ppes_pillagers", ["pmcbot"], "Pillagers", "Saqueadores", "Well-armed raiders looting the locations."),
         // the two arms dealers of the 2024 Arms Race event, each with Kolontay's guards
-        new(731004, Gus, "PpesGus", "ppes_gus", ["followerkolontaysecurity", "pmcbot"],
-            "Gus", "Gus", "An arms dealer selling Western weapons on Streets."),
-        new(731005, Basmach, "PpesBasmach", "ppes_basmach", ["followerkolontaysecurity", "pmcbot"],
-            "Basmach", "Basmach", "An arms dealer selling Russian weapons on Streets."),
-    ];
+        [Gus] = ("ppes_gus", ["followerkolontaysecurity", "pmcbot"], "Gus", "Gus", "An arms dealer selling Western weapons on Streets."),
+        [Basmach] = ("ppes_basmach", ["followerkolontaysecurity", "pmcbot"], "Basmach", "Basmach", "An arms dealer selling Russian weapons on Streets."),
+    };
+
+    public static readonly IReadOnlyList<FactionDef> All = PpesIds.Factions
+        .Select(f => Details[f.Role] is var d ? new FactionDef(f, d.Faction, d.Sources, d.NameEn, d.NamePt, d.DescEn) : null!)
+        .ToList();
 
     private static readonly HashSet<string> Ready = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>True once the server side of the faction loaded, so events never spawn a type the server cannot build.</summary>
-    public static bool IsReady(string role) => Ready.Contains(role);
-
     internal static void MarkReady(string role) => Ready.Add(role);
-
-    /// <summary>Black Division (BlackDivServer) is installed; the Blackout event needs Wedge and his men.</summary>
-    public static bool BlackDivision { get; internal set; }
 
     public static FactionDef? ByRole(string role) =>
         All.FirstOrDefault(f => string.Equals(f.Role, role, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>False only for a PPES faction whose server side did not load, so nothing spawns a type the server cannot build.</summary>
+    public static bool CanSpawn(string role) => ByRole(role) is null || Ready.Contains(role);
 }

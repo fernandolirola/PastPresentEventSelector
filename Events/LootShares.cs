@@ -7,9 +7,6 @@ namespace PPES.Events;
 /// <summary>Adds items to loot pools as a share of the picks, so the rest of the pool keeps its balance.</summary>
 internal static class LootShares
 {
-    private static readonly string[] Maps = ["bigmap", "woods", "shoreline", "interchange", "lighthouse", "rezervbase", "tarkovstreets",
-        "factory4_day", "factory4_night", "laboratory", "sandbox", "sandbox_high"];
-
     // drawers, jackets and PC blocks
     private static readonly HashSet<string> SmallContainers = ["5675838d4bdc2d95058b456e", "578f87b7245977356274f2cd", "578f8778245977358849a9b5",
         "5914944186f774189e5e76c2", "5937ef2b86f77408a47244b3", "59139c2186f77411564f8e42"];
@@ -17,7 +14,7 @@ internal static class LootShares
     /// <summary>Puts an item in the small loot containers of every map at about <paramref name="share"/> of each container's picks.</summary>
     public static void AddToSmallContainers(LocationTable locations, string tpl, double share)
     {
-        foreach (var map in Maps)
+        foreach (var map in GameMaps.WithLoot)
         {
             locations.GetLocation(map)?.StaticLoot?.AddTransformer(data =>
             {

@@ -20,14 +20,12 @@ public static class VultifyBlackout
     private static PropertyInfo? _state;
     private static (string Tpl, string SpawnId, Vector3 Position)? _key;
 
-    public static bool Loaded => _controller is not null;
-
-    internal static void Find<T>(IServiceProvider services, ISptLogger<T> logger)
+    internal static bool Link<T>(IServiceProvider services, ISptLogger<T> logger)
     {
         var type = AppDomain.CurrentDomain.GetAssemblies()
             .Select(a => a.GetType(ControllerType, false))
             .FirstOrDefault(t => t is not null);
-        if (type is null) return;
+        if (type is null) return false;
 
         try
         {
@@ -36,11 +34,13 @@ public static class VultifyBlackout
             if (_state?.SetMethod is null) throw new MissingMemberException(ControllerType, "CurrentRaidBlackout");
             _controller = services.GetService(type) ?? throw new InvalidOperationException("controller not registered");
             logger.Info($"{Services.ConfigService.LogPrefix} Vultify's Blackout found: the Blackout event turns the Lab dark");
+            return true;
         }
         catch (Exception ex)
         {
             _controller = null;
             logger.Warning($"{Services.ConfigService.LogPrefix} Vultify's Blackout found but this version can't be linked: {ex.Message}");
+            return false;
         }
     }
 

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using BepInEx;
 using EFT;
 using EFT.HealthSystem;
@@ -14,8 +13,7 @@ namespace PPES.Client;
 /// <summary>
 /// Client fixes for the event content. Each patch is a no-op unless the problem it fixes is present.
 /// </summary>
-// same GUID as the server mod: the Forge checks that both DLLs declare the registered one
-[BepInPlugin("com.zezinho.pastpresenteventselector", "zezinho-PastPresentEventSelector", "1.7.5")]
+[BepInPlugin(PpesIds.Guid, "zezinho-PastPresentEventSelector", PpesVersion.Value)]
 [BepInDependency("com.morebotsapi.tacticaltoaster", BepInDependency.DependencyFlags.SoftDependency)]
 [BepInDependency("com.acidphantasm.botplacementsystem", BepInDependency.DependencyFlags.SoftDependency)]
 public class Plugin : BaseUnityPlugin
@@ -113,7 +111,7 @@ internal static class MoreBotsWaveHeadroom
     private static bool IsCustom(WildSpawnType role)
     {
         var id = (int)role;
-        return id is >= 731001 and <= 731005 || _isCustomRole is not null && (bool)_isCustomRole.Invoke(null, [id]);
+        return PpesIds.IsFaction(id) || _isCustomRole is not null && (bool)_isCustomRole.Invoke(null, [id]);
     }
 
     private static bool BeforeMoreBotsHuntCreated(BotOwner bot)
@@ -124,14 +122,6 @@ internal static class MoreBotsWaveHeadroom
 
 internal static class CustomFactionSupport
 {
-    private static readonly (int Id, string ScavRole)[] Types =
-    {
-        (731001, "PpesCleanupCrew"),
-        (731002, "PpesSmuggler"),
-        (731003, "PpesPillager"),
-        (731004, "PpesGus"),
-        (731005, "PpesBasmach"),
-    };
     private static bool _groupsAdded;
 
     public static void Enable(Harmony harmony)
@@ -145,7 +135,7 @@ internal static class CustomFactionSupport
         var difficulties = difficultiesField.GetValue(null) as IDictionary<WildSpawnType, List<BotDifficulty>>
             ?? throw new InvalidOperationException("Bot difficulty exclusions are unavailable");
 
-        foreach (var custom in Types)
+        foreach (var custom in PpesIds.Factions)
         {
             var role = (WildSpawnType)custom.Id;
             if (!settings.ContainsKey(role))
@@ -168,7 +158,7 @@ internal static class CustomFactionSupport
     private static void AfterInit()
     {
         if (_groupsAdded) return;
-        foreach (var custom in Types)
+        foreach (var custom in PpesIds.Factions)
             WildSpawnTypeExtension.SubInitList(new List<WildSpawnType> { (WildSpawnType)custom.Id });
         _groupsAdded = true;
     }
@@ -191,7 +181,7 @@ internal static class FactionSpawnPoints
 
     private static void Postfix(WildSpawnType role, ref List<IPlayer> __result)
     {
-        if ((int)role is >= 731001 and <= 731005) __result = new List<IPlayer>();
+        if (PpesIds.IsFaction((int)role)) __result = new List<IPlayer>();
     }
 }
 
@@ -216,15 +206,8 @@ internal static class BossMisfire
 
     private static void Refresh()
     {
-        var json = ClientMechanics.Read();
-        _kollontay = Read(json, "kollontayJam", _kollontay);
-        _vengeful = Read(json, "vengefulJam", _vengeful);
-    }
-
-    private static float Read(string json, string key, float fallback)
-    {
-        var match = Regex.Match(json, "\"" + key + "\"\\s*:\\s*(-?[\\d.]+)");
-        return match.Success && float.TryParse(match.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) ? value : fallback;
+        _kollontay = ClientMechanics.Number("kollontayJam", _kollontay);
+        _vengeful = ClientMechanics.Number("vengefulJam", _vengeful);
     }
 
     private static bool AddMisfirePrefix(ref float? workTime)

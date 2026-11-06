@@ -1,14 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <LangVersion>latest</LangVersion>
     <AssemblyName>PastPresentEventSelector.Prepatch</AssemblyName>
     <RootNamespace>PPES.Prepatch</RootNamespace>
-    <Version>1.7.5</Version>
     <GenerateDependencyFile>false</GenerateDependencyFile>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <!-- game install used only for references at build time -->
-    <SPTPath Condition="'$(SPTPath)' == ''">C:\SPT</SPTPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
@@ -24,5 +21,8 @@
       <HintPath>$(SPTPath)\BepInEx\core\Mono.Cecil.dll</HintPath>
       <Private>false</Private>
     </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\shared\*.cs" Link="shared\%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

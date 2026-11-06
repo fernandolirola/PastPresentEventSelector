@@ -28,7 +28,7 @@ public sealed class FactionDifficultyRouter : DynamicRouter
                     ? []
                     : json.Deserialize<Dictionary<string, Dictionary<string, DifficultyCategories>>>(output) ?? [];
                 var added = 0;
-                foreach (var def in FactionCatalog.All.Where(d => FactionCatalog.IsReady(d.Role)))
+                foreach (var def in FactionCatalog.All.Where(d => FactionCatalog.CanSpawn(d.Role)))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     if (!bots.Types.TryGetValue(def.Role.ToLowerInvariant(), out var type) || type?.BotDifficulty is null) continue;

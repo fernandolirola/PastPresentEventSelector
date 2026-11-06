@@ -1,0 +1,36 @@
+@inherits PpesSection
+
+<section class="ppes-section" aria-labelledby="ppes-overview-title">
+    <div class="ppes-section-head"><MudIcon Icon="@Icons.Material.Filled.Dashboard" Class="ppes-accent" /><div>
+        <MudText Typo="Typo.h5" id="ppes-overview-title">@T("Vis\u00e3o geral", "Overview")</MudText>
+        <MudText Typo="Typo.body2" Class="spt-muted">@T("Confira sua sele\u00e7\u00e3o antes da pr\u00f3xima raid. A pr\u00e9via inclui altera\u00e7\u00f5es ainda n\u00e3o salvas.", "Check your selection before the next raid. This overview includes unsaved changes.")</MudText>
+    </div></div>
+    <div class="ppes-overview-grid">
+        <MudPaper Elevation="0" Class="ppes-panel spt-panel">
+            <MudText Typo="Typo.h6">@T("Eventos sazonais", "Seasonal events")</MudText>
+            @foreach (var item in EventCatalog.Seasonal)
+            {
+                var active = IsSeasonalActive(item.Id);
+                <button type="button" class="ppes-overview-event" @onclick="@(() => Open.InvokeAsync($"seasonal/{item.Id}"))"><span>@T(item.NamePt, item.NameEn)</span><span class="ppes-status @(active ? "ppes-status-on" : "")">@Status(active)</span></button>
+            }
+            <span class="ppes-hint">@T("No modo Autom\u00e1tico, os sazonais seguem suas datas.", "In Auto mode, seasonal events follow their dates.")</span>
+        </MudPaper>
+        <MudPaper Elevation="0" Class="ppes-panel spt-panel">
+            <MudText Typo="Typo.h6">@T("Eventos antigos selecionados", "Selected past events")</MudText>
+            @if (Working.Events.Count == 0)
+            {
+                <span class="ppes-hint">@T("Nenhum evento escolhido. Escolha eventos ou aplique um preset.", "No events selected. Choose events or apply a preset.")</span>
+            }
+            @foreach (var id in Working.Events)
+            {
+                <span class="ppes-overview-event"><span>@EventCatalog.Past(id)?.Name</span><span class="ppes-hint">@(EventCatalog.Past(id)?.NeedsRestart == true ? T("Reiniciar servidor", "Server restart") : T("Pr\u00f3xima raid", "Next raid"))</span></span>
+            }
+            <div class="ppes-row"><button type="button" class="ppes-chip" @onclick="@(() => Open.InvokeAsync("events"))">@T("Escolher eventos", "Browse events")</button><button type="button" class="ppes-chip" @onclick="@(() => Open.InvokeAsync("settings/presets"))">Presets</button></div>
+        </MudPaper>
+        <MudPaper Elevation="0" Class="ppes-panel spt-panel ppes-overview-wide">
+            <div class="ppes-panel-head"><MudIcon Icon="@Icons.Material.Filled.Map" Class="ppes-accent" /><MudText Typo="Typo.h6">@T("Antes de entrar na raid", "Before you raid")</MudText></div>
+            <span class="ppes-hint">@T("Eventos de boss e airdrop valem na pr\u00f3xima raid. Sazonais, quests e regras do servidor precisam reiniciar. O comportamento com zumbis vale em at\u00e9 30 segundos com o plugin do cliente.", "Boss and airdrop events apply next raid. Seasonal events, quests and server rules need a restart. Zombie behavior applies within 30 seconds with the client plugin.")</span>
+            <div class="ppes-row"><button type="button" class="ppes-chip" @onclick="@(() => Open.InvokeAsync("raid"))">@T("Abrir configura\u00e7\u00e3o da raid", "Open raid setup")</button></div>
+        </MudPaper>
+    </div>
+</section>

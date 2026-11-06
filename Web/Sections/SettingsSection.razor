@@ -1,0 +1,250 @@
+@inherits PpesSection
+@inject EventSchedule Schedule
+@inject ISnackbar Snackbar
+
+<section class="ppes-section" aria-labelledby="ppes-settings-title">
+    <div class="ppes-section-head"><MudIcon Icon="@Icons.Material.Filled.Tune" Class="ppes-accent" /><div>
+        <MudText Typo="Typo.h5" id="ppes-settings-title">@T("Configura\u00e7\u00f5es", "Settings")</MudText>
+        <MudText Typo="Typo.body2" Class="spt-muted">@T("Mec\u00e2nicas, rota\u00e7\u00e3o e prefer\u00eancias, cada uma no seu lugar.", "Mechanics, automation and preferences, each in its own place.")</MudText>
+    </div></div>
+    <nav class="ppes-settings-nav" aria-label="@T("Categorias de configuração", "Settings categories")">
+        @foreach (var tab in Tabs)
+        {
+            <button type="button" class="ppes-chip @(Tab == tab.Id ? "ppes-selected" : "")" aria-current="@(Tab == tab.Id ? "page" : null)" @onclick="@(() => Open.InvokeAsync($"settings/{tab.Id}"))">@T(tab.Pt, tab.En)</button>
+        }
+    </nav>
+    @if (Tab == "mechanics")
+    {
+    <MudPaper Elevation="0" Class="ppes-panel spt-panel">
+        <div class="ppes-panel-head">
+            <MudIcon Icon="@Icons.Material.Filled.Tune" Class="ppes-accent" />
+            <MudText Typo="Typo.h6">@T("Mec\u00e2nicas", "Mechanics")</MudText>
+        </div>
+        <MudText Typo="Typo.body2" Class="spt-muted">@T("Valores exatos; o padr\u00e3o \u00e9 o do jogo. As travas valem no pr\u00f3ximo raide e precisam do plugin do cliente. O resto precisa reiniciar o servidor.", "Exact values; the default is the game's. Jams apply from the next raid and need the client plugin. The rest need a server restart.")</MudText>
+        <div class="ppes-mechanics-grid">
+        @foreach (var row in MechanicRows)
+        {
+            var limits = Settings.LimitsOf(typeof(MechanicsSettings), row.Property)!;
+            <div class="ppes-mech">
+                <span class="ppes-label">@T(row.Pt, row.En) <span class="ppes-tag">@T(row.ScopePt, row.ScopeEn)</span></span>
+                <div class="ppes-mech-input">
+                    <input class="ppes-input ppes-number" type="number" min="@(double.IsNaN(limits.Off) ? limits.Min : limits.Off)" max="@limits.Max" step="@row.Step" aria-label="@T(row.Pt, row.En)"
+                           value="@Settings.Get(Working.Mechanics, row.Property).ToString(CultureInfo.InvariantCulture)" @onchange="@(e => SetMech(row.Property, e.Value?.ToString()))" />
+                    <span>@row.Unit</span>
+                </div>
+                <span class="ppes-hint">@T(row.HintPt, row.HintEn)</span>
+            </div>
+        }
+        </div>
+    </MudPaper>
+    }
+    @if (Tab == "presets")
+    {
+    <MudPaper Elevation="0" Class="ppes-panel spt-panel">
+        <div class="ppes-panel-head">
+            <MudIcon Icon="@Icons.Material.Filled.Bookmarks" Class="ppes-accent" />
+            <MudText Typo="Typo.h6">@T("Presets", "Presets")</MudText>
+        </div>
+        <MudText Typo="Typo.body2" Class="spt-muted">@T("Aplica um conjunto de eventos. Depois \u00e9 s\u00f3 salvar.", "Applies a set of events. Then just save.")</MudText>
+        <div class="ppes-chips">
+            @foreach (var p in EventCatalog.Presets)
+            {
+                <button class="ppes-chip" title="@T(p.DescPt, p.DescEn)" @onclick="@(() => ApplyPreset(p.Events, p.ResetSeasonal ? AllAuto() : null))">@T(p.NamePt, p.NameEn)</button>
+            }
+            @foreach (var (name, preset) in Config.Saved.Presets)
+            {
+                <span class="ppes-chip ppes-chip-custom">
+                    <button @onclick="@(() => ApplyPreset(preset.Events, preset.Seasonal))">@name</button>
+                    <button class="ppes-chip-x" title="@T("Apagar preset", "Delete preset")" @onclick="@(() => Config.Update(c => c.Presets.Remove(name)))">×</button>
+                </span>
+            }
+        </div>
+        <div class="ppes-inline-form">
+            <input class="ppes-input" placeholder="@T("Nome do seu preset", "Your preset name")" maxlength="40" @bind="presetName" @bind:event="oninput" />
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" Disabled="@string.IsNullOrWhiteSpace(presetName)" OnClick="SavePreset">@T("Salvar sele\u00e7\u00e3o atual", "Save current picks")</MudButton>
+        </div>
+    </MudPaper>
+    }
+    @if (Tab == "rotation")
+    {
+    <MudPaper Elevation="0" Class="ppes-panel spt-panel">
+        <div class="ppes-panel-head">
+            <MudIcon Icon="@Icons.Material.Filled.Autorenew" Class="ppes-accent" />
+            <MudText Typo="Typo.h6">@T("Rota\u00e7\u00e3o autom\u00e1tica", "Automatic rotation")</MudText>
+        </div>
+        <MudText Typo="Typo.body2" Class="spt-muted">@T("O servidor sorteia eventos sozinho e liga pra voc\u00ea: a cada hora, dia, semana, s\u00f3 nos fins de semana ou a cada tantas raids. Eles somam com os que voc\u00ea ligou e trocam sozinhos. S\u00f3 entram no sorteio eventos que valem na pr\u00f3xima raid, ent\u00e3o n\u00e3o precisa reiniciar.", "The server draws events by itself and turns them on for you: every hour, day or week, only on weekends, or every few raids. They add to the ones you turned on and change on their own. Only events that apply from the next raid are drawn, so no restart is needed.")</MudText>
+        <div class="ppes-row">
+            <span class="ppes-label">@T("Sortear:", "Draw:")</span>
+            <div class="ppes-segmented" role="radiogroup">
+                @foreach (var (value, pt, en) in RotationModes)
+                {
+                    <button role="radio" aria-checked="@(Working.Rotation.Mode == value ? "true" : "false")" class="@(Working.Rotation.Mode == value ? "ppes-on" : "")" @onclick="@(() => Draft.Edit(w => w.Rotation.Mode = value))">@T(pt, en)</button>
+                }
+            </div>
+            @if (Working.Rotation.Mode == RotationMode.Raids)
+            {
+                <span class="ppes-label">@T("A cada", "Every")</span>
+                @NumberInput(Working.Rotation, nameof(RotationSettings.Raids), T("Raids por sorteio", "Raids per draw"))
+                <span class="ppes-label">raids</span>
+            }
+            @if (Working.Rotation.Mode != RotationMode.Off)
+            {
+                <span class="ppes-label">@T("Quantos:", "How many:")</span>
+                @NumberInput(Working.Rotation, nameof(RotationSettings.Count), T("Quantidade", "Amount"))
+                <span class="ppes-label">@T($"de {RotationPoolSize}", $"of {RotationPoolSize}")</span>
+            }
+        </div>
+        @if (Working.Rotation.Mode != RotationMode.Off)
+        {
+            var rotation = Schedule.Rotation(Working, Now);
+            <div class="ppes-rotation">
+                <span class="ppes-hint">@RotationText(rotation)</span>
+                @foreach (var id in rotation.Picks)
+                {
+                    <span class="@($"ppes-pill {(rotation.Active ? "ppes-pill-on" : "")}")">@EventCatalog.Past(id)?.Name</span>
+                }
+            </div>
+        }
+    </MudPaper>
+    <MudPaper Elevation="0" Class="ppes-panel spt-panel mb-3">
+        <div class="ppes-panel-head">
+            <MudIcon Icon="@Icons.Material.Filled.Shuffle" Class="ppes-accent" />
+            <MudText Typo="Typo.h6">@T("Rota\u00e7\u00e3o dos sazonais", "Seasonal rotation")</MudText>
+        </div>
+        <MudText Typo="Typo.body2" Class="spt-muted">@T("Em vez do calend\u00e1rio, um evento sazonal sorteado fica ligado em cada per\u00edodo, e \u00e0s vezes nenhum, para dar uma pausa. Eventos em Desligado ficam fora do sorteio. O SPT s\u00f3 escolhe os sazonais ao iniciar, ent\u00e3o um per\u00edodo novo vale depois de reiniciar o servidor.", "Instead of the calendar, one random seasonal event is on each period, and sometimes none for a break. Events set to Off stay out of the draw. SPT only picks seasonal events at startup, so a new period applies after a server restart.")</MudText>
+        <div class="ppes-row">
+            <span class="ppes-label">@T("Sortear:", "Draw:")</span>
+            <div class="ppes-segmented" role="radiogroup">
+                @foreach (var (value, pt, en) in SeasonalRotationModes)
+                {
+                    <button role="radio" aria-checked="@(Working.SeasonalRotation.Mode == value ? "true" : "false")" class="@(Working.SeasonalRotation.Mode == value ? "ppes-on" : "")" @onclick="@(() => Draft.Edit(w => w.SeasonalRotation.Mode = value))">@T(pt, en)</button>
+                }
+            </div>
+            @if (Working.SeasonalRotation.Mode != SeasonalRotationMode.Off)
+            {
+                <span class="ppes-label">@T("Chance de pausa:", "Break chance:")</span>
+                @NumberInput(Working.SeasonalRotation, nameof(SeasonalRotationSettings.BreakChance), T("Chance de pausa", "Break chance"))
+                <span class="ppes-label">%</span>
+            }
+        </div>
+        @if (SeasonalSchedule.Rotation(Working, Today) is { Active: true } seasonalDraw)
+        {
+            <div class="ppes-rotation">
+                <span class="ppes-hint">@T($"Per\u00edodo atual, at\u00e9 {FormatDate(seasonalDraw.Until.AddDays(-1))}:", $"This period, until {FormatDate(seasonalDraw.Until.AddDays(-1))}:")</span>
+                <span class="ppes-pill ppes-pill-on">@(seasonalDraw.Pick is { } pick ? SeasonalName(pick) : T("pausa, nenhum evento", "break, no event"))</span>
+            </div>
+        }
+    </MudPaper>
+    }
+    @if (Tab == "notice")
+    {
+    <MudPaper Elevation="0" Class="ppes-panel spt-panel">
+        <div class="ppes-panel-head">
+            <MudIcon Icon="@Icons.Material.Filled.Mail" Class="ppes-accent" />
+            <MudText Typo="Typo.h6">@T("Aviso no jogo", "In-game notice")</MudText>
+            <MudSwitch T="bool" Value="@Working.TraderMessage" ValueChanged="@(v => Draft.Edit(w => w.TraderMessage = v))" Color="Color.Warning" Class="ml-auto" aria-label="@T("Aviso no jogo", "In-game notice")" />
+        </div>
+        <MudText Typo="Typo.body2" Class="spt-muted">
+            @T("Quando voc\u00ea entra no jogo, o Fence manda uma mensagem com os boatos dos eventos ativos. S\u00f3 manda de novo quando os eventos mudam.",
+               "When you log in, Fence sends a message with rumors about the active events. It only sends again when the events change.")
+        </MudText>
+    </MudPaper>
+    }
+</section>
+
+@code {
+    [Parameter] public string Tab { get; set; } = "mechanics";
+
+    private string presetName = "";
+
+    public static readonly (string Id, string Pt, string En)[] Tabs =
+    [
+        ("mechanics", "Mec\u00e2nicas", "Mechanics"),
+        ("rotation", "Rota\u00e7\u00e3o", "Rotation"),
+        ("presets", "Presets", "Presets"),
+        ("notice", "Aviso no jogo", "In-game notice"),
+    ];
+
+    private static readonly (string Value, string Pt, string En)[] RotationModes =
+    [
+        (RotationMode.Off, "Desligada", "Off"),
+        (RotationMode.Hourly, "Por hora", "Hourly"),
+        (RotationMode.Daily, "Di\u00e1ria", "Daily"),
+        (RotationMode.Weekly, "Semanal", "Weekly"),
+        (RotationMode.Weekend, "Fins de semana", "Weekends"),
+        (RotationMode.Raids, "Por raids", "By raids"),
+    ];
+
+    private static readonly (string Value, string Pt, string En)[] SeasonalRotationModes =
+    [
+        (SeasonalRotationMode.Off, "Desligada", "Off"),
+        (SeasonalRotationMode.Daily, "Di\u00e1ria", "Daily"),
+        (SeasonalRotationMode.Weekly, "Semanal", "Weekly"),
+        (SeasonalRotationMode.Monthly, "Mensal", "Monthly"),
+    ];
+
+    private sealed record MechRow(string Property, string Pt, string En, string ScopePt, string ScopeEn, string Unit, double Step, string HintPt, string HintEn);
+
+    private static readonly IReadOnlyList<MechRow> MechanicRows =
+    [
+        new(nameof(MechanicsSettings.KollontayJam), "Trava de arma do Kollontay", "Kollontay weapon jam", "sempre", "always", "s", 0.5,
+            "Padr\u00e3o 5 s. 0 desliga. Ele \u00e9 um chefe normal de Streets, com ou sem evento.", "Default 5 s. 0 turns it off. He is a regular Streets boss, with or without an event."),
+        new(nameof(MechanicsSettings.VengefulJam), "Trava de arma do Zryachiy Vingativo", "Vengeful Zryachiy weapon jam", "Halloween com ritual", "Halloween with ritual", "s", 1,
+            "Padr\u00e3o -1: n\u00e3o acaba nunca. 0 desliga a trava (o p\u00e2nico fica). Qualquer outro valor \u00e9 a dura\u00e7\u00e3o.", "Default -1: never ends. 0 turns the jam off (the panic stays). Any other value is the length."),
+        new(nameof(MechanicsSettings.RitualExitTime), "Tempo de sa\u00edda no ritual", "Ritual extract time", "Halloween com ritual", "Halloween with ritual", "x", 0.1,
+            "Padr\u00e3o 3: as sa\u00eddas demoram 3 vezes mais durante o ritual.", "Default 3: extracts take 3 times longer during the ritual."),
+        new(nameof(MechanicsSettings.RitualStamina), "Gasto de vigor no ritual", "Ritual stamina drain", "Halloween com ritual", "Halloween with ritual", "x", 0.1,
+            "Padr\u00e3o 3: o vigor gasta 3 vezes mais r\u00e1pido durante o ritual.", "Default 3: stamina drains 3 times faster during the ritual."),
+        new(nameof(MechanicsSettings.ToxinDehydration), "Toxina: desidrata\u00e7\u00e3o", "Toxin: dehydration", "zumbis", "zombies", "", 0.01,
+            "Padr\u00e3o 0.84: a velocidade com que a hidrata\u00e7\u00e3o cai depois de ser infectado. 0 desliga.", "Default 0.84: how fast hydration drains after being infected. 0 turns it off."),
+        new(nameof(MechanicsSettings.ToxinHearing), "Toxina: perda de audi\u00e7\u00e3o", "Toxin: hearing loss", "zumbis", "zombies", "%", 1,
+            "Padr\u00e3o 20: quanto da audi\u00e7\u00e3o se perde ao ser infectado.", "Default 20: how much hearing is lost when infected."),
+    ];
+
+    private static int RotationPoolSize => EventSchedule.RotationPool.Count();
+
+    private void SetMech(string property, string? text)
+    {
+        if (double.TryParse(text?.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var v))
+            Draft.Edit(w => Settings.Set(w.Mechanics, property, v));
+    }
+
+    private RenderFragment NumberInput(object target, string property, string label) => __builder =>
+    {
+        var limits = Settings.LimitsOf(target.GetType(), property)!;
+        <input class="ppes-input ppes-number" type="number" min="@limits.Min" max="@limits.Max" aria-label="@label"
+               value="@Settings.Get(target, property).ToString(CultureInfo.InvariantCulture)"
+               @onchange="@(e => { if (double.TryParse(e.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var n)) Draft.Edit(_ => Settings.Set(target, property, n)); })" />
+    };
+
+    private string RotationText(RotationState rotation) => Working.Rotation.Mode switch
+    {
+        RotationMode.Raids => T($"Sorteados agora, trocam em {rotation.RaidsLeft} raid(s):", $"Drawn now, change in {rotation.RaidsLeft} raid(s):"),
+        RotationMode.Hourly => T($"Sorteados agora, at\u00e9 {rotation.Until:HH:mm}:", $"Drawn now, until {rotation.Until:HH:mm}:"),
+        RotationMode.Daily => T("Sorteados para hoje:", "Drawn for today:"),
+        _ when rotation.Active => T($"Sorteados agora, ligados at\u00e9 {FormatDate(rotation.Until.AddDays(-1))}:", $"Drawn now, on until {FormatDate(rotation.Until.AddDays(-1))}:"),
+        _ => T($"Sorteio do pr\u00f3ximo fim de semana ({FormatDate(rotation.From)} e {FormatDate(rotation.From.AddDays(1))}):", $"Next weekend's draw ({FormatDate(rotation.From)} and {FormatDate(rotation.From.AddDays(1))}):"),
+    };
+
+    private static Dictionary<string, string> AllAuto() => EventCatalog.Seasonal.ToDictionary(s => s.Id, _ => SeasonalMode.Auto);
+
+    private void ApplyPreset(IEnumerable<string> events, Dictionary<string, string>? seasonal)
+    {
+        Draft.Edit(w =>
+        {
+            w.Events = ConfigService.NormalizeEvents(events);
+            foreach (var (id, mode) in seasonal ?? []) w.Seasonal[id] = mode;
+        });
+        Snackbar.Add(T("Preset aplicado. Confira e salve.", "Preset applied. Review and save."), Severity.Info);
+    }
+
+    private void SavePreset()
+    {
+        var name = presetName.Trim();
+        if (name.Length == 0) return;
+        var data = new PresetData { Events = [.. Working.Events], Seasonal = new(Working.Seasonal) };
+        Config.Update(c => c.Presets[name] = data);
+        presetName = "";
+        Snackbar.Add(T($"Preset \"{name}\" salvo.", $"Preset \"{name}\" saved."), Severity.Success);
+    }
+}

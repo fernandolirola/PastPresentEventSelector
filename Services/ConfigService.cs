@@ -13,23 +13,22 @@ namespace PPES.Services;
 public sealed class ConfigService
 {
     public const string LogPrefix = "[Event Selector]";
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true, PropertyNameCaseInsensitive = true,
-        ReadCommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
 
     private readonly Lock _lock = new();
     private readonly ISptLogger<ConfigService> _logger;
     private PpesConfig _saved = new();
-    private PpesConfig? _applied;
 
     public ConfigService(ModHelper modHelper, ISptLogger<ConfigService> logger)
+        : this(modHelper.GetAbsolutePathToModFolder(Assembly.GetExecutingAssembly()), logger)
+    {
+    }
+
+    internal ConfigService(string modPath, ISptLogger<ConfigService> logger)
     {
         _logger = logger;
-        ModPath = modHelper.GetAbsolutePathToModFolder(Assembly.GetExecutingAssembly());
+        ModPath = modPath;
         Load();
+        Applied = Saved.Clone();
     }
 
     public string ModPath { get; }
@@ -38,57 +37,37 @@ public sealed class ConfigService
     public DateTime StartedAt { get; } = DateTimeOffset.Now.DateTime;
     private string ConfigPath => Path.Combine(ModPath, "config.json");
 
-    /// <summary>What is on disk now. Raid-time events read this, so they change from the next raid.</summary>
+    /// <summary>What is on disk now. Raid-time settings read this, so they change from the next raid.</summary>
     public PpesConfig Saved => Volatile.Read(ref _saved);
 
-    /// <summary>What the server applied at startup. Load-time events only change after a restart.</summary>
-    public PpesConfig Applied => Volatile.Read(ref _applied) ?? Saved;
+    /// <summary>What the server loaded at startup. Load-time settings only change after a restart.</summary>
+    public PpesConfig Applied { get; }
 
     public event Action? Changed;
 
-    public void MarkApplied()
-    {
-        lock (_lock) Volatile.Write(ref _applied, _saved.Clone());
-    }
-
     /// <summary>Saves a page preference (language, view, presets) right away, leaving unsaved event picks alone.</summary>
-    public void Update(Action<PpesConfig> change)
+    public void Update(Action<PpesConfig> change) => Write(_ =>
     {
-        lock (_lock)
-        {
-            var updated = Saved.Clone();
-            change(updated);
-            updated = Normalize(updated);
-            WriteAtomic(updated);
-            Volatile.Write(ref _saved, updated);
-        }
-        Changed?.Invoke();
-    }
+        var updated = Saved.Clone();
+        change(updated);
+        return updated;
+    });
 
-    public void Save(PpesConfig config)
+    /// <summary>Saves the page's draft unless someone else saved a different selection since it was loaded.</summary>
+    public bool TrySaveDraft(PpesConfig draft, PpesConfig baseline) => Write(latest =>
     {
-        var normalized = Normalize(config.Clone());
-        lock (_lock)
-        {
-            WriteAtomic(normalized);
-            Volatile.Write(ref _saved, normalized);
-        }
-        Changed?.Invoke();
-    }
+        if (!latest.SameSelectionAs(baseline)) return null;
+        var updated = draft.Clone();
+        updated.CopyPreferencesFrom(latest);
+        return updated;
+    });
 
-    /// <summary>Reject a stale page draft and preserve preferences saved independently of it.</summary>
-    public bool TrySaveDraft(PpesConfig draft, PpesConfig baseline)
+    private bool Write(Func<PpesConfig, PpesConfig?> next)
     {
         lock (_lock)
         {
-            var latest = Saved;
-            if (!latest.SameSelectionAs(baseline)) return false;
-            var updated = draft.Clone();
-            updated.Language = latest.Language;
-            updated.View = latest.View;
-            updated.GroupByYear = latest.GroupByYear;
-            updated.Presets = latest.Clone().Presets;
-            updated = Normalize(updated);
+            if (next(Saved) is not { } updated) return false;
+            Normalize(updated);
             WriteAtomic(updated);
             Volatile.Write(ref _saved, updated);
         }
@@ -98,25 +77,24 @@ public sealed class ConfigService
 
     private void Load()
     {
-        lock (_lock)
+        try
         {
-            try
-            {
-                var text = File.Exists(ConfigPath) ? File.ReadAllText(ConfigPath) : null;
-                var loaded = text is null ? new PpesConfig() : JsonSerializer.Deserialize<PpesConfig>(text, JsonOptions) ?? new PpesConfig();
-                var migrated = text is not null && MigrateToxin(text, loaded);
-                loaded = Normalize(loaded);
-                if (text is null || migrated) WriteAtomic(loaded);
-                Volatile.Write(ref _saved, loaded);
-            }
-            catch (Exception ex)
-            {
-                var backup = ConfigPath + ".broken-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".json";
-                try { File.Copy(ConfigPath, backup, true); }
-                catch { backup = "(backup failed)"; }
-                _logger.Error($"{LogPrefix} Invalid config.json, using defaults. Backup: {backup}. Error: {ex.Message}");
-                Volatile.Write(ref _saved, Normalize(new PpesConfig()));
-            }
+            var text = File.Exists(ConfigPath) ? File.ReadAllText(ConfigPath) : null;
+            var loaded = text is null ? new PpesConfig() : JsonSerializer.Deserialize<PpesConfig>(text, PpesConfig.JsonOptions) ?? new PpesConfig();
+            var migrated = text is not null && MigrateToxin(text, loaded);
+            Normalize(loaded);
+            if (text is null || migrated) WriteAtomic(loaded);
+            _saved = loaded;
+        }
+        catch (Exception ex)
+        {
+            var backup = ConfigPath + ".broken-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".json";
+            try { File.Copy(ConfigPath, backup, true); }
+            catch { backup = "(backup failed)"; }
+            _logger.Error($"{LogPrefix} Invalid config.json, using defaults. Backup: {backup}. Error: {ex.Message}");
+            var defaults = new PpesConfig();
+            Normalize(defaults);
+            _saved = defaults;
         }
     }
 
@@ -124,7 +102,7 @@ public sealed class ConfigService
     /// Up to 1.7.4 the toxin sliders had wrong defaults (10 and 33) and a wrong sign, so an old hydration value is
     /// dropped and the old hearing default becomes the game's 20.
     /// </summary>
-    private static bool MigrateToxin(string text, PpesConfig loaded)
+    internal static bool MigrateToxin(string text, PpesConfig loaded)
     {
         var mechanics = JsonNode.Parse(text, documentOptions: new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true })?["mechanics"] as JsonObject;
         if (mechanics is null) return false;
@@ -134,41 +112,28 @@ public sealed class ConfigService
         return true;
     }
 
-    private static PpesConfig Normalize(PpesConfig config)
+    internal static void Normalize(PpesConfig config)
     {
         config.Language = string.Equals(config.Language, "pt", StringComparison.OrdinalIgnoreCase) ? "pt" : "en";
         config.View = config.View == "list" ? "list" : "grid";
-        config.Seasonal = NormalizeSeasonal(config.Seasonal);
-        config.Events = NormalizeEvents(config.Events);
+        config.Seasonal = NormalizeSeasonal(config.Seasonal ?? new());
+        config.Events = NormalizeEvents(config.Events ?? []);
         config.Halloween ??= new HalloweenParts();
-        config.Halloween.ZombieWaveSizeMin = Math.Clamp(config.Halloween.ZombieWaveSizeMin, 1, 20);
-        config.Halloween.ZombieWaveSizeMax = Math.Clamp(Math.Max(config.Halloween.ZombieWaveSizeMin, config.Halloween.ZombieWaveSizeMax), 1, 20);
-        config.Halloween.ZombieWaveIntervalMin = Math.Clamp(config.Halloween.ZombieWaveIntervalMin, 1, 30);
-        config.Halloween.ZombieWaveIntervalMax = Math.Clamp(Math.Max(config.Halloween.ZombieWaveIntervalMin, config.Halloween.ZombieWaveIntervalMax), 1, 30);
-        config.Mechanics ??= new MechanicsSettings();
-        var m = config.Mechanics;
-        m.KollontayJam = Math.Clamp(Math.Round(m.KollontayJam, 1), 0, 600);
-        m.VengefulJam = m.VengefulJam < 0 ? -1 : Math.Clamp(Math.Round(m.VengefulJam, 1), 0, 3600);
-        m.RitualExitTime = Math.Clamp(Math.Round(m.RitualExitTime, 2), 0.1, 20);
-        m.RitualStamina = Math.Clamp(Math.Round(m.RitualStamina, 2), 0.1, 20);
-        m.ToxinDehydration = Math.Clamp(Math.Round(m.ToxinDehydration, 2), 0, 100);
-        m.ToxinHearing = Math.Clamp(Math.Round(m.ToxinHearing, 0), 0, 100);
         config.Christmas ??= new ChristmasParts();
         config.AprilFools ??= new AprilFoolsParts();
+        config.Mechanics ??= new MechanicsSettings();
         config.Rotation ??= new RotationSettings();
         config.Rotation.Mode = RotationMode.Normalize(config.Rotation.Mode);
-        config.Rotation.Count = Math.Clamp(config.Rotation.Count, 1, Math.Max(1, EventSchedule.RotationPool.Count()));
-        config.Rotation.Raids = Math.Clamp(config.Rotation.Raids, 1, 50);
         config.SeasonalRotation ??= new SeasonalRotationSettings();
         config.SeasonalRotation.Mode = SeasonalRotationMode.Normalize(config.SeasonalRotation.Mode);
-        config.SeasonalRotation.BreakChance = Math.Clamp(config.SeasonalRotation.BreakChance, 0, 90);
+        foreach (var part in new object[] { config.Halloween, config.Mechanics, config.Rotation, config.SeasonalRotation })
+            Settings.Normalize(part);
         config.Spawns = NormalizeSpawns(config.Spawns ?? new());
         var presets = new Dictionary<string, PresetData>();
         foreach (var (name, preset) in config.Presets ?? new())
             if (!string.IsNullOrWhiteSpace(name) && preset is not null)
                 presets[name.Trim()] = new PresetData { Seasonal = NormalizeSeasonal(preset.Seasonal ?? new()), Events = NormalizeEvents(preset.Events ?? []) };
         config.Presets = presets;
-        return config;
     }
 
     /// <summary>One edit per role and map, the last one winning; edits that change nothing are dropped.</summary>
@@ -184,9 +149,9 @@ public sealed class ConfigService
                 if (e is null || string.IsNullOrWhiteSpace(e.Role)) continue;
                 e.Role = e.Role.Trim();
                 e.Chance = e.Chance is { } c ? Math.Clamp(Math.Round(c, 1), 0, 100) : null;
-                e.Zones = string.IsNullOrWhiteSpace(e.Zones) ? null : string.Join(",", e.Zones.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+                e.Zones = ZoneList.Join(ZoneList.Split(e.Zones));
                 e.Escort = SpawnEdits.NormalizeEscort(e.Escort);
-                if (!e.Remove && e.Chance is null && e.Zones is null && e.Escort is null) continue;
+                if (e.ChangesNothing) continue;
                 byRole[e.Role] = e;
             }
             if (byRole.Count > 0) result[map.Trim().ToLowerInvariant()] = [.. byRole.Values];
@@ -219,7 +184,7 @@ public sealed class ConfigService
     private void WriteAtomic(PpesConfig config)
     {
         var tmp = ConfigPath + ".tmp";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(config, JsonOptions));
+        File.WriteAllText(tmp, JsonSerializer.Serialize(config, PpesConfig.JsonOptions));
         File.Move(tmp, ConfigPath, true);
     }
 }

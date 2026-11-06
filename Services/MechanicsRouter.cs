@@ -1,4 +1,4 @@
-using System.Globalization;
+using PPES.Models;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
 using SPTarkov.Server.Core.Models.Eft.Common;
@@ -11,6 +11,5 @@ namespace PPES.Services;
 public sealed class MechanicsRouter(JsonUtil jsonUtil, ConfigService config) : StaticRouter(jsonUtil,
 [
     new RouteAction<EmptyRequestData>("/ppes/mechanics", (_, _, _, _, _) =>
-        new ValueTask<string>(string.Create(CultureInfo.InvariantCulture,
-            $"{{\"kollontayJam\":{config.Saved.Mechanics.KollontayJam},\"vengefulJam\":{config.Saved.Mechanics.VengefulJam},\"botsHideFromZombies\":{(config.Saved.Halloween.BotsHideFromZombies ? "true" : "false")}}}"))),
+        new ValueTask<string>(Settings.LiveJson(config.Saved.Mechanics, config.Saved.Halloween))),
 ]);

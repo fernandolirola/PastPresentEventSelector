@@ -25,6 +25,7 @@ public sealed class RaidContext(LocationBase location, string mapId, LocationTab
 {
     public LocationBase Location { get; } = location;
     public string MapId { get; } = mapId;
+    public ICloner Cloner { get; } = cloner;
 
     /// <summary>The page's preview copy: edits to the map are fine, state shared with other mods is not.</summary>
     public bool IsPreview { get; } = preview;
@@ -62,7 +63,7 @@ public sealed class RaidContext(LocationBase location, string mapId, LocationTab
         var template = source ?? Location.BossLocationSpawn.FirstOrDefault();
         if (template is null) return false;
 
-        var spawn = cloner.Clone(template)!;
+        var spawn = Cloner.Clone(template)!;
         if (source is null)
         {
             spawn.BossName = boss;
@@ -80,16 +81,8 @@ public sealed class RaidContext(LocationBase location, string mapId, LocationTab
         return true;
     }
 
-    private static readonly string[] HomeMaps = ["bigmap", "woods", "shoreline", "interchange", "lighthouse", "rezervbase", "tarkovstreets",
-        "factory4_day", "factory4_night", "laboratory", "sandbox", "sandbox_high", "labyrinth"];
-
     /// <summary>A map whose own spawns have this role, to copy it from with its followers.</summary>
     public string? HomeOf(string boss) =>
-        HomeMaps.FirstOrDefault(m => locations.GetLocation(m)?.Base?.BossLocationSpawn?
+        GameMaps.AllIds.FirstOrDefault(m => locations.GetLocation(m)?.Base?.BossLocationSpawn?
             .Any(b => string.Equals(b.BossName, boss, StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(b.TriggerId)) == true);
-
-    public void AddSpawn(BossLocationSpawn spawn) => Location.BossLocationSpawn?.Add(spawn);
-
-    public BossLocationSpawn? CloneAnySpawn() =>
-        Location.BossLocationSpawn?.FirstOrDefault() is { } first ? cloner.Clone(first) : null;
 }
