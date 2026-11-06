@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.6
+
+- Fixed the event rotation's "How many" setting being lowered every time the server started.
+- Zombie wave settings now apply from the next raid, without a server restart.
+- The raid preview now shows your unsaved seasonal choices, such as ritual, cultists, Santa, zombies and Lab rules, the same way the raid will get them.
+- Events that need another mod you don't have are now skipped instead of running only partly.
+- Events whose recreated quests can't load no longer ask for a server restart.
 ## 1.7.5
 
 - Fixed the zombie toxin settings. Dehydration now drains hydration instead of adding it, and both settings start at the game's own values (0.84 and 20%).
