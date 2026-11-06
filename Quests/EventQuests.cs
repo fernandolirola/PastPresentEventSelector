@@ -60,13 +60,17 @@ public sealed class EventQuests(
                 .Where(s => s.RecreatedQuests is not null && (s.Id != SeasonalIds.Halloween || config.Applied.Halloween.Outbreak2026))
                 .SelectMany(s => QuestCatalog.RecreatedFor(s.RecreatedQuests!).Select(id => (id, Season: Enum.Parse<SeasonalEventType>(s.Id, true))))
                 .ToDictionary(x => x.id, x => x.Season);
+            var left = new HashSet<string>();
+            foreach (var id in quests.Keys.Select(k => k.ToString()))
+                if (meta.Requires.TryGetValue(id, out var need) && !ModRequirements.Has(need))
+                {
+                    left.Add(id);
+                    skipped.Add(need);
+                }
+            LeaveOutFollowUps(quests, left);
             foreach (var (id, quest) in quests)
             {
-                if (meta.Requires.TryGetValue(id.ToString(), out var need) && !ModRequirements.Has(need))
-                {
-                    skipped.Add(need);
-                    continue;
-                }
+                if (left.Contains(id.ToString())) continue;
                 templates.Quests[id] = quest;
                 added++;
                 // same entry as SPT's own seasonal quests
@@ -91,6 +95,24 @@ public sealed class EventQuests(
             logger.Error($"{ConfigService.LogPrefix} Event quests could not be added: {ex.Message}");
         }
         return Task.CompletedTask;
+    }
+
+    /// <summary>A follow-up of a quest that was left out could never start, so it is left out too.</summary>
+    private static void LeaveOutFollowUps(Dictionary<MongoId, Quest> quests, HashSet<string> left)
+    {
+        bool grew;
+        do
+        {
+            grew = false;
+            foreach (var (id, quest) in quests)
+            {
+                if (left.Contains(id.ToString())) continue;
+                var after = (quest.Conditions.AvailableForStart ?? [])
+                    .Where(c => c.ConditionType == "Quest" && c.Target is not null)
+                    .SelectMany(c => c.Target!.IsList ? c.Target.List! : [c.Target.Item!]);
+                if (after.Any(left.Contains)) grew |= left.Add(id.ToString());
+            }
+        } while (grew);
     }
 
     private void AddLocales(Dictionary<string, Dictionary<string, string>> texts, Dictionary<string, string> aliases)

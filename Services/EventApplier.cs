@@ -22,6 +22,7 @@ public sealed class EventApplier(
     QuestConfig questConfig,
     AirdropConfig airdropConfig,
     LocationConfig locationConfig,
+    TemplateTable templates,
     ISptLogger<EventApplier> logger) : IOnLoad
 {
     public Task OnLoadAsync(CancellationToken cancellationToken)
@@ -43,7 +44,10 @@ public sealed class EventApplier(
                 if (def.FreeAccess.Length > 0) Effects.RemoveAccessKeys(context, def.FreeAccess);
                 if (def.Mortar.Length > 0) Effects.EnableMortarStrike(context, def.Mortar);
                 foreach (var quest in def.Quests)
+                {
                     questConfig.EventQuests?.Remove(new MongoId(quest));
+                    RemoveRetiredLevelLock(quest);
+                }
                 applied.Add(def.Name);
             }
             catch (Exception ex)
@@ -62,6 +66,15 @@ public sealed class EventApplier(
             : $"{ConfigService.LogPrefix} Past events: {string.Join(", ", applied)}");
         return Task.CompletedTask;
     }
+
+    /// <summary>The game retires some event quests (Import Control) with a "level 99" start condition instead of the event list.</summary>
+    private void RemoveRetiredLevelLock(string questId)
+    {
+        if (templates.Quests?.TryGetValue(new MongoId(questId), out var quest) != true) return;
+        quest!.Conditions.AvailableForStart?.RemoveAll(c => c.ConditionType == "Level" && c.Value >= RetiredLevel);
+    }
+
+    private const double RetiredLevel = 79;
 
     /// <summary>Only values that differ from the game's are written, so another mod's change stays when nothing was asked.</summary>
     private void ApplyMechanics(MechanicsSettings m)

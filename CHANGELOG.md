@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.7
+
+- Fixed Mechanic not offering Import Control with the Arms Race event on. The quest asked for level 99. It now only needs its usual earlier quest.
+- Fixed event follow-up quests, such as Western Quality Standards and Time-Tested, showing up but never becoming available when the faction their earlier quests need couldn't load.
+
 ## 1.7.6
 
 - Fixed the event rotation's "How many" setting being lowered every time the server started.

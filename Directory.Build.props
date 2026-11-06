@@ -1,7 +1,7 @@
 <Project>
   <!-- one version for the server, client plugin and prepatcher: the Forge checks the plugin's against the mod's -->
   <PropertyGroup>
-    <Version>1.7.6</Version>
+    <Version>1.7.7</Version>
     <SPTPath Condition="'$(SPTPath)' == ''">C:\SPT</SPTPath>
   </PropertyGroup>
 </Project>
